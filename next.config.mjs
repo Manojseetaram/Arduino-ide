@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // redirects: async () => [
+  //   {
+  //     source: '/',
+  //     destination: '/',
+  //     permanent: false, // Use false if this might change based on auth
+  //   },
+  // ],
   eslint: {
     ignoreDuringBuilds: true,
   },

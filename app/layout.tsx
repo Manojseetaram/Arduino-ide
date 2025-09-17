@@ -2,6 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
+import {  Poppins } from "next/font/google";
+
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 
@@ -10,6 +12,12 @@ export const metadata: Metadata = {
   description: "Created with v0",
   generator: "v0.app",
 }
+
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'], // Choose weights you need
+})
 
 export default function RootLayout({
   children,
@@ -37,7 +45,9 @@ html {
           }}
         />
       </head>
-      <body>
+      <body
+        className={`${poppins.className} antialiased`}
+      >
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>
