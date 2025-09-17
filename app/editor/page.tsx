@@ -268,21 +268,23 @@ export default function VSCodeEditor() {
             </div>
 
            
-            {isTerminalOpen && (
-              <div
-                className="border-t border-border bg-black text-white flex flex-col"
-                style={{ height: `${terminalHeight}px` }}
-              >
-                {/* Resize handle */}
-                <div
-                  className="h-1 cursor-row-resize border-gray-300 bg-white border-1px"
-                  onMouseDown={() => (isResizing.current = true)}
-                />
-                <div className="flex-1 overflow-hidden">
-                  <TerminalWrapper />
-                </div>
-              </div>
-            )}
+             {isTerminalOpen && (
+        <div
+          className="border-t border-border bg-black text-white flex flex-col"
+          style={{ height: `${terminalHeight}px` }}
+        >
+          {/* Resize handle */}
+          <div
+            className="h-1 cursor-row-resize bg-white"
+            onMouseDown={() => (isResizing.current = true)}
+          />
+
+          {/* Terminal */}
+          <div className="flex-1 overflow-hidden">
+            <TerminalWrapper onClose={() => setIsTerminalOpen(false)} />
+          </div>
+        </div>
+      )}
           </div>
         </div>
       </div>

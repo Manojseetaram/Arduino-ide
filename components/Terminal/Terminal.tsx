@@ -1,95 +1,130 @@
+
 "use client"
-import { useEffect, useRef } from "react"
-import { Terminal as XTerm } from "xterm"
-import { FitAddon } from "xterm-addon-fit"
-import "xterm/css/xterm.css"
+import { useEffect, useRef, useState } from "react"
+import type React from "react"
+
+interface TerminalLine {
+  id: number
+  content: string
+  type: "input" | "output" | "error"
+}
 
 export default function Terminal() {
-  const terminalRef = useRef<HTMLDivElement | null>(null)
+  const [lines, setLines] = useState<TerminalLine[]>([])
+  const [currentInput, setCurrentInput] = useState("")
+  const [lineId, setLineId] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const terminalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (terminalRef.current) {
-      const xterm = new XTerm({
-        cursorBlink: true,
-        fontSize: 14,
-        theme: {
-       
-          foreground : "#1e1e1e",
-          background : "#d4d4d4"
-        },
-      })
-
-      const fitAddon = new FitAddon()
-      xterm.loadAddon(fitAddon)
-      xterm.open(terminalRef.current)
-      fitAddon.fit()
-
-      xterm.write("$ ")
-
-      let currentCommand = ""
-
-      xterm.onData((data) => {
-        const code = data.charCodeAt(0)
-
-        if (code === 13) {
-          // Enter
-          if (currentCommand.trim()) {
-            if (currentCommand === "clear") {
-              xterm.clear()
-            } else if (currentCommand === "help") {
-              xterm.writeln("\r\nAvailable: help, clear, echo <msg>\r\n")
-            } else if (currentCommand.startsWith("echo ")) {
-              xterm.writeln("\r\n" + currentCommand.slice(5) + "\r\n")
-            } else {
-              xterm.writeln(`\r\nUnknown command: ${currentCommand}\r\n`)
-            }
-          }
-          currentCommand = ""
-          xterm.write("$ ")
-        } else if (code === 127) {
-          // Backspace
-          if (currentCommand.length > 0) {
-            currentCommand = currentCommand.slice(0, -1)
-            xterm.write("\b \b")
-          }
-        } else {
-          currentCommand += data
-          xterm.write(data)
-        }
-      })
-
-     
-      xterm.attachCustomKeyEventHandler((e: KeyboardEvent) => {
-        if (e.ctrlKey && e.key === "c") {
-          const selection = xterm.getSelection()
-          if (selection) {
-            navigator.clipboard.writeText(selection)
-          }
-          return false
-        }
-        if (e.ctrlKey && e.key === "v") {
-          navigator.clipboard.readText().then((text) => {
-            xterm.write(text)
-            currentCommand += text
-          })
-          return false
-        }
-        // if (e.ctrlKey && e.key == "x"){
-        //     const selection = xterm.getSelection()
-        //         if(selection) {
-        //             navigator.clipboard.endText(selection)
-        //         }
-
-        //     return false
-        // }
-        return true
-      })
-
-      const handleResize = () => fitAddon.fit()
-      window.addEventListener("resize", handleResize)
-      return () => window.removeEventListener("resize", handleResize)
+    // Focus input when terminal loads
+    if (inputRef.current) {
+      inputRef.current.focus()
     }
   }, [])
 
-  return <div ref={terminalRef} className="w-full h-full bg-black" />
+  useEffect(() => {
+    // Scroll to bottom when new lines are added
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
+    }
+  }, [lines])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "x") {
+        e.preventDefault()
+        setLines((prev) => [...prev, { id: lineId, content: `$ ${currentInput}`, type: "input" }])
+        setLineId((prev) => prev + 1)
+        setCurrentInput("")
+        return
+      }
+
+      // Focus input if typing anywhere in terminal
+      if (inputRef.current && !inputRef.current.matches(":focus")) {
+        inputRef.current.focus()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [currentInput, lineId])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!currentInput.trim()) {
+      setLines((prev) => [...prev, { id: lineId, content: `$ `, type: "input" }])
+      setLineId((prev) => prev + 1)
+      setCurrentInput("")
+      return
+    }
+
+    // Add input line
+    setLines((prev) => [...prev, { id: lineId, content: `$ ${currentInput}`, type: "input" }])
+    setLineId((prev) => prev + 1)
+
+    // Process command
+    const command = currentInput.trim()
+    let output = ""
+    let outputType: "output" | "error" = "output"
+
+    if (command === "clear") {
+      setLines([])
+      setCurrentInput("")
+      return
+    } else if (command === "help") {
+      output = "Available commands: help, clear, echo <message>"
+    } else if (command.startsWith("echo ")) {
+      output = command.slice(5)
+    } else {
+      output = `Command not found: ${command}`
+      outputType = "error"
+    }
+
+    // Add output line
+    setLines((prev) => [...prev, { id: lineId + 1, content: output, type: outputType }])
+    setLineId((prev) => prev + 2)
+    setCurrentInput("")
+  }
+
+  const handleClick = () => {
+    if (inputRef.current) {
+      inputRef.current.focus()
+    }
+  }
+
+  return (
+    <div
+      ref={terminalRef}
+      className="w-full h-full bg-white text-black font-mono text-sm p-2 overflow-y-auto cursor-text"
+      onClick={handleClick}
+    >
+      {/* Previous lines */}
+      {lines.map((line) => (
+        <div
+          key={line.id}
+          className={`whitespace-pre-wrap ${
+            line.type === "error" ? "text-red-600" : line.type === "output" ? "text-black" : "text-black"
+          }`}
+        >
+          {line.content}
+        </div>
+      ))}
+
+      {/* Current input line */}
+      <form onSubmit={handleSubmit} className="flex items-center">
+        <span className="text-black mr-1">$</span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={currentInput}
+          onChange={(e) => setCurrentInput(e.target.value)}
+          className="flex-1 bg-transparent border-none outline-none text-black font-mono"
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </form>
+    </div>
+  )
 }
