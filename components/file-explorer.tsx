@@ -400,8 +400,8 @@ export function FileExplorer({
             </div>
           </div>
           {folder_name && (
-            <div className="text-xs text-muted-foreground bg-accent/30 px-2 py-1 rounded">
-              Selected: {folder_name}
+            <div className="text-xs text-muted-foreground bg-accent/30  py-1 rounded">
+              Project Name: {folder_name}
             </div>
           )}
 

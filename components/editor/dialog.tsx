@@ -78,11 +78,13 @@ export function ProjectNameDialog({
           <div className="grid gap-4">
             <div className="grid gap-3">
               <Label htmlFor="name">Name</Label>
-              <Input
+              <input
                 id="name"
                 name="name"
                 placeholder="test"
+                className="w-full rounded-md border-2 border-gray-300 p-2 text-sm "
                 onChange={(e) => setName(e.target.value)}
+                autoFocus={false}
               />
             </div>
           </div>
