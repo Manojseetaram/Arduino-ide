@@ -30,7 +30,7 @@ export default function VSCodeEditor() {
   const [openTabs, setOpenTabs] = useState<FileNode[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<FileNode | null>(null);
 
-  // Terminal state
+  
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [terminalHeight, setTerminalHeight] = useState(200);
   const isResizing = useRef(false);
@@ -48,6 +48,21 @@ export default function VSCodeEditor() {
     };
     loadFolder();
   }, []);
+
+  
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+     
+      if (e.ctrlKey && e.key === "`") {
+        e.preventDefault(); 
+        setIsTerminalOpen((prev) => !prev);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
 
   // Handle resize drag
   useEffect(() => {
@@ -141,7 +156,7 @@ export default function VSCodeEditor() {
             </TooltipContent>
           </Tooltip>
 
-          {/* Toggle terminal button */}
+          
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -149,7 +164,7 @@ export default function VSCodeEditor() {
                 size="icon"
                 onClick={() => setIsTerminalOpen((prev) => !prev)}
               >
-                <TerminalIcon className="w-5 h-5" />
+                <TerminalIcon className="w-5 h-5 text-primary" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -172,9 +187,9 @@ export default function VSCodeEditor() {
           />
         </div>
 
-        {/* Editor + Terminal */}
+ 
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Tabs */}
+         
           {openTabs.length > 0 && (
             <div className="flex bg-card border-b border-border overflow-x-auto shrink-0">
               {openTabs.map((tab) => (
@@ -279,7 +294,7 @@ export default function VSCodeEditor() {
             onMouseDown={() => (isResizing.current = true)}
           />
 
-          {/* Terminal */}
+         
           <div className="flex-1 overflow-hidden">
             <TerminalWrapper onClose={() => setIsTerminalOpen(false)} />
           </div>

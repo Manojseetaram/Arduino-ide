@@ -17,14 +17,14 @@ export default function Terminal() {
   const terminalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Focus input when terminal loads
+    
     if (inputRef.current) {
       inputRef.current.focus()
     }
   }, [])
 
   useEffect(() => {
-    // Scroll to bottom when new lines are added
+    
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight
     }
@@ -40,7 +40,7 @@ export default function Terminal() {
         return
       }
 
-      // Focus input if typing anywhere in terminal
+  
       if (inputRef.current && !inputRef.current.matches(":focus")) {
         inputRef.current.focus()
       }
@@ -60,11 +60,11 @@ export default function Terminal() {
       return
     }
 
-    // Add input line
+    
     setLines((prev) => [...prev, { id: lineId, content: `$ ${currentInput}`, type: "input" }])
     setLineId((prev) => prev + 1)
 
-    // Process command
+  
     const command = currentInput.trim()
     let output = ""
     let outputType: "output" | "error" = "output"
@@ -82,7 +82,7 @@ export default function Terminal() {
       outputType = "error"
     }
 
-    // Add output line
+  
     setLines((prev) => [...prev, { id: lineId + 1, content: output, type: outputType }])
     setLineId((prev) => prev + 2)
     setCurrentInput("")
@@ -100,7 +100,7 @@ export default function Terminal() {
       className="w-full h-full bg-white text-black font-mono text-sm p-2 overflow-y-auto cursor-text"
       onClick={handleClick}
     >
-      {/* Previous lines */}
+  
       {lines.map((line) => (
         <div
           key={line.id}
@@ -112,7 +112,6 @@ export default function Terminal() {
         </div>
       ))}
 
-      {/* Current input line */}
       <form onSubmit={handleSubmit} className="flex items-center">
         <span className="text-black mr-1">$</span>
         <input
