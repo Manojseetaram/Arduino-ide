@@ -14,8 +14,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DotSquareIcon, MenuIcon } from "lucide-react";
+import { ProjectNameDialog } from "./dialog";
 
-export function ProjectDropdown() {
+export function ProjectDropdown({onProjectOpen}: {onProjectOpen: (path: string) => void}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -25,11 +26,9 @@ export function ProjectDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-52 mr-8 mt-2" align="start">
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            Open Project
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            Create Project
+          <DropdownMenuItem>Open Project</DropdownMenuItem>
+          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <ProjectNameDialog onSucess={onProjectOpen}/>
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

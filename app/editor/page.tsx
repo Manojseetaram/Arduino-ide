@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { FileExplorer } from "@/components/file-explorer";
 import CodeEditor from "@/components/code-editor";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { invoke } from "@tauri-apps/api/tauri";
 import { ProjectDropdown } from "@/components/editor/dropdown";
 import { Button } from "@/components/ui/button";
@@ -21,6 +20,7 @@ export interface FileNode {
   content?: string;
   children?: FileNode[];
   isOpen?: boolean;
+  folder_name:string;
 }
 
 export default function VSCodeEditor() {
@@ -29,14 +29,17 @@ export default function VSCodeEditor() {
   const [activeFile, setActiveFile] = useState<FileNode | null>(null);
   const [openTabs, setOpenTabs] = useState<FileNode[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<FileNode | null>(null);
-  const [message, setMessage] = useState("");
+  const [folderName, setFolderName] = useState<string>("");
 
   useEffect(() => {
     const loadFolder = async () => {
       try {
         const files: FileNode[] = await invoke("read_folder", {
           path: "/home/shettyanikethan/Desktop/test",
-        });
+        })
+        if (files.length > 0) {
+          setFolderName(files[0].folder_name) 
+        }
         setFileTree(files);
       } catch (error) {
         console.error("Failed to read folder:", error);
@@ -156,19 +159,23 @@ export default function VSCodeEditor() {
           </div>
         </div>
         <div className="">
-          <ProjectDropdown />
+          <ProjectDropdown 
+            onProjectOpen={async (path) => {
+              try {
+                const files: FileNode[] = await invoke("read_folder", { path });
+                setFileTree(files);
+                setFolderName(files[0].folder_name);
+              } catch (error) {
+                console.error("Failed to read new project:", error);
+              }
+            }}
+          />
           <Tooltip>
             <TooltipTrigger>
               <Button
                 variant={"outline"}
                 className="ml-4 rounded-2xl bg-primary w-[60px] text-white font-semibold text-md leading-none hover:bg-primary/90 hover:text-white"
-                onClick={() => {
-                  //   invoke("create_esp_idf_project",{projectName:"test"})
-                  //   .then((res)=>{
-                  //     //@ts-expect-error
-                  //     setMessage(res)
-                  //   })
-                }}
+              
               >
                 <ArrowRightIcon className="w-5 h-5 font-bold" />
               </Button>
@@ -190,6 +197,7 @@ export default function VSCodeEditor() {
             onFileSelect={openFile}
             selectedFolder={selectedFolder}
             setSelectedFolder={setSelectedFolder}
+            folder_name={folderName}
           />
         </div>
 
