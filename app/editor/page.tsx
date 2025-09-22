@@ -187,6 +187,7 @@ export default function VSCodeEditor() {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
+          className="ml-4"
             variant="outline"
             size="icon"
             onClick={() => setIsTerminalOpen((prev) => !prev)}
