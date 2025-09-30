@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ArrowRightIcon, Terminal as TerminalIcon } from "lucide-react";
 import TerminalWrapper from "@/components/Terminal/TerminalWrapper";
+import ExtensionsDialog from "@/components/lybraris/lybraris";
 
 export interface FileNode {
   id: string;
@@ -42,7 +43,7 @@ export default function VSCodeEditor() {
 
   useEffect(() => {
     const loadFolder = async () => {
-      try {
+      try { 
         const files: FileNode[] = await invoke("read_folder", {
           path: "/home/shettyanikethan/Desktop/test",
         })
@@ -167,8 +168,45 @@ export default function VSCodeEditor() {
           }
         }}
       />
+<Tooltip>
+  <TooltipTrigger asChild>
+   <ExtensionsDialog
+  onInstall={(newFiles) => {
+    // Create a FileNode for the installed extension
+    const extensionNode: FileNode = {
+      id: Date.now().toString(),
+      name: "rust-analyzer", // extension name
+      type: "folder",         // folder because it contains files
+      children: [
+        {
+          id: (Date.now() + 1).toString(),
+          name: "README.md",
+          type: "file",
+          content: "# Rust Analyzer",
+          folder_name: folderName,
+        },
+        // Add more files if needed
+      ],
+      folder_name: folderName,
+      isOpen: true, // open by default
+    };
 
-      {/* Compile and Flash Button */}
+    // Add the extension node to the fileTree
+    setFileTree((prev) => [...prev, extensionNode]);
+
+    // Optionally select the new extension folder
+    setSelectedFolder(extensionNode);
+  }}
+/>
+
+
+  </TooltipTrigger>
+  <TooltipContent>
+    <p>Extensions</p>
+  </TooltipContent>
+</Tooltip>
+
+      
       <Tooltip>
         <TooltipTrigger>
           <Button
@@ -183,7 +221,7 @@ export default function VSCodeEditor() {
         </TooltipContent>
       </Tooltip>
 
-      {/* Terminal Toggle Button */}
+     
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

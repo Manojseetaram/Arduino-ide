@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/tauri";
 
 import { Button } from "@/components/ui/button";
 import { CreateItemDialog } from "@/components/create-item-dialog";
@@ -67,19 +68,37 @@ export function FileExplorer({
     setContextMenu(null);
   };
 
-  const createItem = (name: string) => {
-    const newItem: FileNode = {
-      id: Date.now().toString(),
-      name,
-      type: createDialog.type,
-      content: createDialog.type === "file" ? "" : undefined,
-      children: createDialog.type === "folder" ? [] : undefined,
-      isOpen: createDialog.type === "folder" ? false : undefined,
-      folder_name
-    };
+  const createItem = async (name: string) => {
+  const newItem: FileNode = {
+    id: Date.now().toString(),
+    name,
+    type: createDialog.type,
+    content: createDialog.type === "file" ? "" : undefined,
+    children: createDialog.type === "folder" ? [] : undefined,
+    isOpen: createDialog.type === "folder" ? false : undefined,
+    folder_name,
+  };
 
+  try {
+    const basePath = "/Users/manojseetaramgowda/Desktop"; // change as needed
+    let fullPath = `${basePath}/${name}`;
+
+    if (createDialog.parentName) {
+      fullPath = `${basePath}/${createDialog.parentName}/${name}`;
+    }
+
+    if (createDialog.type === "folder") {
+      // Create folder in OS
+      const result = await invoke<string>("create_folder", { path: fullPath });
+      console.log(result);
+    } else if (createDialog.type === "file") {
+      // Create file in OS
+      const result = await invoke<string>("create_file", { path: fullPath, content: "" });
+      console.log(result); // "File created: /Users/.../name"
+    }
+
+    // Update React state
     if (createDialog.parentId) {
-      // Create inside a folder
       const addToNode = (nodes: FileNode[]): FileNode[] => {
         return nodes.map((node) => {
           if (node.id === createDialog.parentId && node.type === "folder") {
@@ -97,10 +116,13 @@ export function FileExplorer({
       };
       setFileTree(addToNode);
     } else {
-      // Create at root level
       setFileTree((prev) => [...prev, newItem]);
     }
-  };
+  } catch (err) {
+    console.error("Failed to create item in OS:", err);
+  }
+};
+
 
   const moveNode = (sourceId: string, targetId: string) => {
     let nodeToMove: FileNode | null = null;
