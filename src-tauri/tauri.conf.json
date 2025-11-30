@@ -60,6 +60,7 @@
         "fullscreen": false,
         "height": 600,
         "resizable": true,
+        "decorations": false,   
         "title": "Vithsutra Editor",
         "width": 800
       }

@@ -505,13 +505,25 @@
 
 use std::{
     fs::{self, File},
-    io::Write,
+    io::{Write, BufRead, BufReader},
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Stdio, Child},
 };
-
 use serde::Serialize;
-use tauri::command;
+use tauri::{command, Window, Manager};
+use std::sync::{Arc, Mutex};
+use once_cell::sync::Lazy;
+
+// ----------------------------------------------------------
+// GLOBAL PROCESS STORE
+// ----------------------------------------------------------
+static PROCESS_KILLER: Lazy<Arc<Mutex<Option<Child>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(None)));
+
+
+// ----------------------------------------------------------
+// PROJECT CREATION
+// ----------------------------------------------------------
 
 #[derive(Serialize)]
 struct ProjectResult {
@@ -520,10 +532,9 @@ struct ProjectResult {
     message: String,
 }
 
-
 #[command]
 fn create_esp_idf_project(project_name: &str) -> tauri::Result<ProjectResult> {
-    let project_path = Path::new("/home/shettyanikethan/Desktop").join(project_name);
+    let project_path = Path::new("/Users/manojseetaramgowda/Desktop").join(project_name);
 
     if project_path.exists() {
         return Ok(ProjectResult {
@@ -536,7 +547,7 @@ fn create_esp_idf_project(project_name: &str) -> tauri::Result<ProjectResult> {
     let status = Command::new("idf.py")
         .arg("create-project")
         .arg(project_name)
-        .current_dir("/home/shettyanikethan/Desktop")
+        .current_dir("/Users/manojseetaramgowda/Desktop")
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()?;
@@ -557,11 +568,16 @@ fn create_esp_idf_project(project_name: &str) -> tauri::Result<ProjectResult> {
 }
 
 
+
+// ----------------------------------------------------------
+// FILE TREE FUNCTIONS
+// ----------------------------------------------------------
+
 #[derive(Debug, Serialize)]
 pub struct FileNode {
     pub id: String,
     pub name: String,
-    pub r#type: String, 
+    pub r#type: String,
     pub content: Option<String>,
     pub children: Option<Vec<FileNode>>,
     pub folder_name: String,
@@ -601,7 +617,6 @@ fn read_dir_recursive(path: &Path, folder_name: &str) -> std::io::Result<Vec<Fil
     Ok(nodes)
 }
 
-
 #[command]
 fn read_folder(path: &str) -> tauri::Result<Vec<FileNode>> {
     let path_buf = PathBuf::from(path);
@@ -617,7 +632,6 @@ fn read_folder(path: &str) -> tauri::Result<Vec<FileNode>> {
     Ok(files)
 }
 
-
 #[command]
 fn create_folder(path: String) -> Result<String, String> {
     let folder_path = PathBuf::from(&path);
@@ -631,7 +645,6 @@ fn create_folder(path: String) -> Result<String, String> {
 
     Ok(format!("Folder created: {}", path))
 }
-
 
 #[command]
 fn create_file(path: String, content: Option<String>) -> Result<String, String> {
@@ -652,13 +665,137 @@ fn create_file(path: String, content: Option<String>) -> Result<String, String> 
     Ok(format!("File created: {}", path))
 }
 
+
+
+// ----------------------------------------------------------
+// RUN ANY LIVE COMMAND (PING / BUILD / ETC.)
+// ----------------------------------------------------------
+
+#[command]
+async fn run_live_command(window: Window, command: String, args: Vec<String>) -> Result<(), String> {
+    // Kill previous process
+    {
+        let mut lock = PROCESS_KILLER.lock().unwrap();
+        if let Some(mut running_proc) = lock.take() {
+            let _ = running_proc.kill();
+        }
+    }
+
+    let mut child = Command::new(&command)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn command: {}", e))?;
+
+    {
+        let mut lock = PROCESS_KILLER.lock().unwrap();
+        *lock = Some(child);
+    }
+
+    // We extract stdout after storing the child
+    let mut lock = PROCESS_KILLER.lock().unwrap();
+    let stored_child = lock.as_mut().unwrap();
+
+    let stdout = stored_child.stdout.take().unwrap();
+    let stderr = stored_child.stderr.take().unwrap();
+
+    // STDOUT Thread
+    let win1 = window.clone();
+    tauri::async_runtime::spawn(async move {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(text) = line {
+                let _ = win1.emit("terminal-output", text);
+            }
+        }
+    });
+
+    // STDERR Thread
+    let win2 = window.clone();
+    tauri::async_runtime::spawn(async move {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(text) = line {
+                let _ = win2.emit("terminal-output", format!("[ERR] {}", text));
+            }
+        }
+    });
+
+    Ok(())
+}
+
+
+
+// ----------------------------------------------------------
+// COMPILE + FLASH ESP32
+// ----------------------------------------------------------
+
+#[command]
+fn compile_and_flash(app: tauri::AppHandle) {
+    {
+        let mut lock = PROCESS_KILLER.lock().unwrap();
+        if let Some(mut running_proc) = lock.take() {
+            let _ = running_proc.kill();
+        }
+    }
+
+    std::thread::spawn(move || {
+        let mut child = Command::new("idf.py")
+            .arg("build")
+            .arg("flash")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to run idf.py build flash");
+
+        {
+            let mut lock = PROCESS_KILLER.lock().unwrap();
+            *lock = Some(child);
+        }
+
+        // Take stdout/stderr
+        let mut lock = PROCESS_KILLER.lock().unwrap();
+        let stored_child = lock.as_mut().unwrap();
+
+        let stdout = stored_child.stdout.take().unwrap();
+        let stderr = stored_child.stderr.take().unwrap();
+
+        // STDOUT
+        let app2 = app.clone();
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                let _ = app2.emit_all("terminal-output", line.unwrap());
+            }
+        });
+
+        // STDERR
+        let app3 = app.clone();
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let _ = app3.emit_all("terminal-output", format!("[ERR] {}", line.unwrap()));
+            }
+        });
+    });
+}
+
+
+
+// ----------------------------------------------------------
+// MAIN
+// ----------------------------------------------------------
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             create_esp_idf_project,
             read_folder,
             create_folder,
-            create_file
+            create_file,
+            run_live_command,
+            compile_and_flash
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

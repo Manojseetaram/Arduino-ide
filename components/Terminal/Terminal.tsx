@@ -1,7 +1,7 @@
-
 "use client"
 import { useEffect, useRef, useState } from "react"
-import type React from "react"
+import { invoke } from "@tauri-apps/api/tauri"
+import { listen } from "@tauri-apps/api/event"
 
 interface TerminalLine {
   id: number
@@ -17,38 +17,37 @@ export default function Terminal() {
   const terminalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    
-    if (inputRef.current) {
-      inputRef.current.focus()
-    }
+    if (inputRef.current) inputRef.current.focus()
   }, [])
 
   useEffect(() => {
-    
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight
     }
   }, [lines])
 
+  // 🔥 LISTEN FOR LIVE LOGS FROM RUST
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "x") {
-        e.preventDefault()
-        setLines((prev) => [...prev, { id: lineId, content: `$ ${currentInput}`, type: "input" }])
-        setLineId((prev) => prev + 1)
-        setCurrentInput("")
-        return
-      }
+    const unlisten = listen<string>("terminal-output", (e) => {
+      setLines((prev) => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          content: e.payload,
+          type: e.payload.startsWith("[ERR]") ? "error" : "output",
+        },
+      ])
+    })
 
-  
-      if (inputRef.current && !inputRef.current.matches(":focus")) {
-        inputRef.current.focus()
-      }
+    return () => {
+      unlisten.then((f) => f())
     }
+  }, [])
 
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [currentInput, lineId])
+  // 🔥 run real-time commands
+  async function runCommand(cmd: string, args: string[] = []) {
+    await invoke("run_live_command", { command: cmd, args })
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,12 +59,30 @@ export default function Terminal() {
       return
     }
 
-    
-    setLines((prev) => [...prev, { id: lineId, content: `$ ${currentInput}`, type: "input" }])
+    const command = currentInput.trim()
+    setLines((prev) => [...prev, { id: lineId, content: `$ ${command}`, type: "input" }])
     setLineId((prev) => prev + 1)
 
-  
-    const command = currentInput.trim()
+    // -----------------------------------------
+    // 🔥 CUSTOM COMMANDS (LIVE STREAM)
+    // -----------------------------------------
+
+    if (command === "ping") {
+      runCommand("ping", ["google.com"])
+      setCurrentInput("")
+      return
+    }
+
+    if (command === "build") {
+      runCommand("idf.py", ["build"])
+      setCurrentInput("")
+      return
+    }
+
+    // -----------------------------------------
+    // default commands
+    // -----------------------------------------
+
     let output = ""
     let outputType: "output" | "error" = "output"
 
@@ -74,7 +91,7 @@ export default function Terminal() {
       setCurrentInput("")
       return
     } else if (command === "help") {
-      output = "Available commands: help, clear, echo <message>"
+      output = "Available commands: help, clear, ping, build"
     } else if (command.startsWith("echo ")) {
       output = command.slice(5)
     } else {
@@ -82,16 +99,13 @@ export default function Terminal() {
       outputType = "error"
     }
 
-  
     setLines((prev) => [...prev, { id: lineId + 1, content: output, type: outputType }])
     setLineId((prev) => prev + 2)
     setCurrentInput("")
   }
 
   const handleClick = () => {
-    if (inputRef.current) {
-      inputRef.current.focus()
-    }
+    if (inputRef.current) inputRef.current.focus()
   }
 
   return (
@@ -100,12 +114,11 @@ export default function Terminal() {
       className="w-full h-full bg-white text-black font-mono text-sm p-2 overflow-y-auto cursor-text"
       onClick={handleClick}
     >
-  
       {lines.map((line) => (
         <div
           key={line.id}
           className={`whitespace-pre-wrap ${
-            line.type === "error" ? "text-red-600" : line.type === "output" ? "text-black" : "text-black"
+            line.type === "error" ? "text-red-600" : "text-black"
           }`}
         >
           {line.content}

@@ -6,6 +6,7 @@ import {  Poppins } from "next/font/google";
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+// import TopBar from "@/components/Topbar/topbar";
 
 export const metadata: Metadata = {
   title: "Vithsutra-app",
@@ -49,6 +50,7 @@ html {
         className={`${poppins.className} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          {/* <TopBar/> */}
           {children}
         </ThemeProvider>
       </body>

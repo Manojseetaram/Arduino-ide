@@ -74,6 +74,10 @@ export default function VSCodeEditor() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+const handleCompileAndFlash = () => {
+  invoke("compile_and_flash");
+  window.dispatchEvent(new CustomEvent("terminal-open"));
+};
 
 
   useEffect(() => {
@@ -161,14 +165,21 @@ export default function VSCodeEditor() {
             <TooltipContent><p>Extensions</p></TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger>
-              <Button variant="outline" className="ml-4 rounded-2xl bg-primary w-[60px] text-white font-semibold text-md leading-none hover:bg-primary/90 hover:text-white">
-                <ArrowRightIcon className="w-5 h-5 font-bold" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Compile and Flash</p></TooltipContent>
-          </Tooltip>
+         <Tooltip>
+  <TooltipTrigger>
+    <Button
+      onClick={handleCompileAndFlash}
+      variant="outline"
+      className="ml-4 rounded-2xl bg-primary w-[60px] text-white font-semibold text-md leading-none hover:bg-primary/90 hover:text-white"
+    >
+      <ArrowRightIcon className="w-5 h-5 font-bold" />
+    </Button>
+  </TooltipTrigger>
+  <TooltipContent>
+    <p>Compile and Flash</p>
+  </TooltipContent>
+</Tooltip>
+
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -240,7 +251,7 @@ export default function VSCodeEditor() {
                               const files: FileNode[] = await invoke("read_folder", { path });
                               if (files.length > 0) setFolderName(files[0].folder_name);
                               setFileTree(files);
-                            }} className="p-2 bg-accent/30 rounded hover:bg-accent/50 text-left text-black">
+                            }} className=" p-2 bg-accent/30 rounded hover:bg-accent/50 text-left text-black">
                               {path.split("/").pop()}
                             </Button>
                           ))}
