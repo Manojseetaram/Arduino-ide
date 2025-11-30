@@ -60,10 +60,13 @@
         "fullscreen": false,
         "height": 600,
         "resizable": true,
-        "decorations": false,   
+        "titleBarStyle": "Visible",
+        "decorations": true,
         "title": "Vithsutra Editor",
         "width": 800
       }
-    ]
-  }
+    ],
+    "macOSPrivateApi": true
+    
+}
 }

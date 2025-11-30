@@ -510,7 +510,7 @@ use std::{
     process::{Command, Stdio, Child},
 };
 use serde::Serialize;
-use tauri::{command, Window, Manager};
+use tauri::{command, Manager, Window, Menu, Submenu, CustomMenuItem, WindowMenuEvent};
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
 
@@ -668,12 +668,11 @@ fn create_file(path: String, content: Option<String>) -> Result<String, String> 
 
 
 // ----------------------------------------------------------
-// RUN ANY LIVE COMMAND (PING / BUILD / ETC.)
+// RUN ANY LIVE COMMAND
 // ----------------------------------------------------------
 
 #[command]
 async fn run_live_command(window: Window, command: String, args: Vec<String>) -> Result<(), String> {
-    // Kill previous process
     {
         let mut lock = PROCESS_KILLER.lock().unwrap();
         if let Some(mut running_proc) = lock.take() {
@@ -681,7 +680,7 @@ async fn run_live_command(window: Window, command: String, args: Vec<String>) ->
         }
     }
 
-    let mut child = Command::new(&command)
+    let child = Command::new(&command)
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -693,14 +692,12 @@ async fn run_live_command(window: Window, command: String, args: Vec<String>) ->
         *lock = Some(child);
     }
 
-    // We extract stdout after storing the child
     let mut lock = PROCESS_KILLER.lock().unwrap();
     let stored_child = lock.as_mut().unwrap();
 
     let stdout = stored_child.stdout.take().unwrap();
     let stderr = stored_child.stderr.take().unwrap();
 
-    // STDOUT Thread
     let win1 = window.clone();
     tauri::async_runtime::spawn(async move {
         let reader = BufReader::new(stdout);
@@ -711,7 +708,6 @@ async fn run_live_command(window: Window, command: String, args: Vec<String>) ->
         }
     });
 
-    // STDERR Thread
     let win2 = window.clone();
     tauri::async_runtime::spawn(async move {
         let reader = BufReader::new(stderr);
@@ -741,7 +737,7 @@ fn compile_and_flash(app: tauri::AppHandle) {
     }
 
     std::thread::spawn(move || {
-        let mut child = Command::new("idf.py")
+        let child = Command::new("idf.py")
             .arg("build")
             .arg("flash")
             .stdout(Stdio::piped())
@@ -754,14 +750,12 @@ fn compile_and_flash(app: tauri::AppHandle) {
             *lock = Some(child);
         }
 
-        // Take stdout/stderr
         let mut lock = PROCESS_KILLER.lock().unwrap();
         let stored_child = lock.as_mut().unwrap();
 
         let stdout = stored_child.stdout.take().unwrap();
         let stderr = stored_child.stderr.take().unwrap();
 
-        // STDOUT
         let app2 = app.clone();
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
@@ -770,7 +764,6 @@ fn compile_and_flash(app: tauri::AppHandle) {
             }
         });
 
-        // STDERR
         let app3 = app.clone();
         std::thread::spawn(move || {
             let reader = BufReader::new(stderr);
@@ -784,11 +777,83 @@ fn compile_and_flash(app: tauri::AppHandle) {
 
 
 // ----------------------------------------------------------
-// MAIN
+// MENU BUILDER — (CORRECT for TAURI v1.8.1)
+// ----------------------------------------------------------
+
+fn build_menu() -> Menu {
+    let new_file = CustomMenuItem::new("new_file", "New File");
+    let open_file = CustomMenuItem::new("open_file", "Open...");
+    let save_file = CustomMenuItem::new("save_file", "Save");
+    let quit = CustomMenuItem::new("quit", "Quit");
+
+    let file_menu = Submenu::new(
+        "File",
+        Menu::new()
+            .add_item(new_file)
+            .add_item(open_file)
+            .add_item(save_file)
+            .add_item(quit),
+    );
+
+    let undo = CustomMenuItem::new("undo", "Undo");
+    let redo = CustomMenuItem::new("redo", "Redo");
+    let cut = CustomMenuItem::new("cut", "Cut");
+    let copy = CustomMenuItem::new("copy", "Copy");
+    let paste = CustomMenuItem::new("paste", "Paste");
+
+    let edit_menu = Submenu::new(
+        "Edit",
+        Menu::new()
+            .add_item(undo)
+            .add_item(redo)
+            .add_item(cut)
+            .add_item(copy)
+            .add_item(paste),
+    );
+
+    let fullscreen = CustomMenuItem::new("fullscreen", "Toggle Full Screen");
+    let view_menu = Submenu::new("View", Menu::new().add_item(fullscreen));
+
+    Menu::new()
+        .add_submenu(file_menu)
+        .add_submenu(edit_menu)
+        .add_submenu(view_menu)
+}
+
+
+
+// ----------------------------------------------------------
+// MAIN — (Correct event handler for TAURI v1.8.1)
 // ----------------------------------------------------------
 
 fn main() {
     tauri::Builder::default()
+        .menu(build_menu())
+        .on_menu_event(|event: WindowMenuEvent| {
+            let id = event.menu_item_id();
+
+            match id {
+                "quit" => {
+                    event.window().app_handle().exit(0);
+                }
+                "new_file" => println!("New File clicked"),
+                "open_file" => println!("Open clicked"),
+                "save_file" => println!("Save clicked"),
+                "undo" => println!("Undo"),
+                "redo" => println!("Redo"),
+                "cut" => println!("Cut"),
+                "copy" => println!("Copy"),
+                "paste" => println!("Paste"),
+
+                "fullscreen" => {
+                    let win = event.window();
+                    let is_full: bool = win.is_fullscreen().unwrap_or(false);
+                    let _ = win.set_fullscreen(!is_full);
+                }
+
+                _ => {}
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             create_esp_idf_project,
             read_folder,
