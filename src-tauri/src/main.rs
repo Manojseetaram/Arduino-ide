@@ -616,6 +616,13 @@ fn read_dir_recursive(path: &Path, folder_name: &str) -> std::io::Result<Vec<Fil
 
     Ok(nodes)
 }
+#[command]
+fn stop_current_process() {
+    let mut lock = PROCESS_KILLER.lock().unwrap();
+    if let Some(mut child) = lock.take() {
+        let _ = child.kill();
+    }
+}
 
 #[command]
 fn read_folder(path: &str) -> tauri::Result<Vec<FileNode>> {
@@ -723,54 +730,41 @@ async fn run_live_command(window: Window, command: String, args: Vec<String>) ->
 
 
 
-// ----------------------------------------------------------
-// COMPILE + FLASH ESP32
-// ----------------------------------------------------------
 
-#[command]
+#[tauri::command]
 fn compile_and_flash(app: tauri::AppHandle) {
-    {
-        let mut lock = PROCESS_KILLER.lock().unwrap();
-        if let Some(mut running_proc) = lock.take() {
-            let _ = running_proc.kill();
-        }
-    }
+    app.emit_all("terminal-output", "🔥 compile_and_flash() CALLED").unwrap();
 
     std::thread::spawn(move || {
-        let child = Command::new("idf.py")
-            .arg("build")
-            .arg("flash")
+        let mut child = Command::new("ping")
+            .arg("google.com")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .expect("Failed to run idf.py build flash");
+            .expect("Failed to run ping");
 
-        {
-            let mut lock = PROCESS_KILLER.lock().unwrap();
-            *lock = Some(child);
-        }
+        let stdout = child.stdout.take().unwrap();
+        let stderr = child.stderr.take().unwrap();
 
-        let mut lock = PROCESS_KILLER.lock().unwrap();
-        let stored_child = lock.as_mut().unwrap();
-
-        let stdout = stored_child.stdout.take().unwrap();
-        let stderr = stored_child.stderr.take().unwrap();
-
-        let app2 = app.clone();
+        let app_out = app.clone();
         std::thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                let _ = app2.emit_all("terminal-output", line.unwrap());
+            for line in BufReader::new(stdout).lines() {
+                if let Ok(text) = line {
+                    let _ = app_out.emit_all("terminal-output", text);
+                }
             }
         });
 
-        let app3 = app.clone();
+        let app_err = app.clone();
         std::thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines() {
-                let _ = app3.emit_all("terminal-output", format!("[ERR] {}", line.unwrap()));
+            for line in BufReader::new(stderr).lines() {
+                if let Ok(text) = line {
+                    let _ = app_err.emit_all("terminal-output", format!("[ERR] {}", text));
+                }
             }
         });
+
+        child.wait().ok();
     });
 }
 
@@ -860,7 +854,8 @@ fn main() {
             create_folder,
             create_file,
             run_live_command,
-            compile_and_flash
+            compile_and_flash,
+            stop_current_process
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

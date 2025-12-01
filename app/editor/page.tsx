@@ -74,10 +74,26 @@ export default function VSCodeEditor() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
-const handleCompileAndFlash = () => {
-  invoke("compile_and_flash");
-  window.dispatchEvent(new CustomEvent("terminal-open"));
+
+const handleCompileAndFlash = async () => {
+  setIsTerminalOpen(true);
+  setTerminalOutput((prev) => prev + "\n⚙️ Starting ping and compiling…\n");
+
+  // Only print the input to the terminal
+  setLines((prev) => [
+    ...prev,
+    { id: prev.length + 1, content: `$ ping google.com`, type: "input" },
+  ]);
+
+  // ❌ DO NOT start ping again
+  // invoke("run_live_command", { command: "ping", args: ["google.com"] });
+
+  // Only trigger compile & flash
+  invoke("compile_and_flash").catch(() => 
+    setTerminalOutput((prev) => prev + "❌ Error during flash\n")
+  );
 };
+
 
 
   useEffect(() => {
@@ -321,3 +337,11 @@ const handleCompileAndFlash = () => {
     </div>
   );
 }
+function setTerminalOutput(arg0: (prev: any) => string) {
+  throw new Error("Function not implemented.");
+}
+
+function setLines(arg0: (prev: any) => any[]) {
+  throw new Error("Function not implemented.");
+}
+
