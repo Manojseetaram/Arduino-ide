@@ -1,14 +1,18 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const router = useRouter()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     console.log({ email, password })
+    // Navigate to dashboard page after login
+    router.push("/dashboard")
   }
 
   return (
