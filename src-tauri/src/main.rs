@@ -502,6 +502,9 @@
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
 )]
+use commands;
+use models;
+use protocols;
 
 use std::{
     fs::{self, File},
