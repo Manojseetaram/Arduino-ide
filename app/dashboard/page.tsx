@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Sidebar } from "@/components/sidebar";
+import { Sidebar, ExplorerNode } from "@/components/sidebar";
 import { EditorLayout } from "@/components/editor-layout";
 import { CreateProjectModal } from "@/components/create-project-modal";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<string[]>([]);
+  const [projectFiles, setProjectFiles] = useState<
+    Record<string, ExplorerNode[]>
+  >({});
   const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [theme] = useState<"light" | "dark">("dark");
   const [showCreate, setShowCreate] = useState(false);
@@ -15,7 +18,8 @@ export default function DashboardPage() {
     const normalized =
       name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
-    setProjects([normalized, ...projects]);
+    setProjects((p) => [...p, normalized]);
+    setProjectFiles((f) => ({ ...f, [normalized]: [] }));
     setCurrentProject(normalized);
     setShowCreate(false);
   };
@@ -27,14 +31,22 @@ export default function DashboardPage() {
         currentProject={currentProject}
         onSelectProject={setCurrentProject}
         theme={theme}
+        files={currentProject ? projectFiles[currentProject] : []}
+        setFiles={(files) =>
+          currentProject &&
+          setProjectFiles((prev) => ({
+            ...prev,
+            [currentProject]: files,
+          }))
+        }
       />
 
-      <div className="flex-1 relative">
+      <div className="flex-1">
         {!currentProject ? (
           <div className="h-full flex items-center justify-center">
             <button
               onClick={() => setShowCreate(true)}
-              className="text-blue-600 text-lg font-semibold hover:underline"
+              className="text-blue-600 text-lg font-semibold"
             >
               + Create Project
             </button>
