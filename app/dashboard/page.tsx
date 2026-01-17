@@ -1,38 +1,55 @@
-"use client"
-import { useState } from "react"
-import { CreateProject } from "@/components/createproject"
-import { MonacoEditor } from "@/components/monacoeditor"
-import { Sidebar } from "@/components/sidebar"
+"use client";
 
-
+import { useState } from "react";
+import { Sidebar } from "@/components/sidebar";
+import { EditorLayout } from "@/components/editor-layout";
+import { CreateProjectModal } from "@/components/create-project-modal";
 
 export default function DashboardPage() {
-  const [projects, setProjects] = useState<string[]>([])
-  const [currentProject, setCurrentProject] = useState<string | null>(null)
-  const [theme, setTheme] = useState<"light" | "dark">("dark")
+  const [projects, setProjects] = useState<string[]>([]);
+  const [currentProject, setCurrentProject] = useState<string | null>(null);
+  const [theme] = useState<"light" | "dark">("dark");
+  const [showCreate, setShowCreate] = useState(false);
 
   const addProject = (name: string) => {
-    setProjects([name, ...projects])
-    setCurrentProject(name)
-  }
+    const normalized =
+      name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
-  const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light")
-  }
+    setProjects([normalized, ...projects]);
+    setCurrentProject(normalized);
+    setShowCreate(false);
+  };
 
   return (
     <div className="flex h-screen">
-      {/* Sidebar */}
-      <Sidebar projects={projects} theme={theme} toggleTheme={toggleTheme} />
+      <Sidebar
+        projects={projects}
+        currentProject={currentProject}
+        onSelectProject={setCurrentProject}
+        theme={theme}
+      />
 
-      {/* Dashboard */}
-      <div className="flex-1 bg-gray-100 dark:bg-gray-900">
+      <div className="flex-1 relative">
         {!currentProject ? (
-          <CreateProject addProject={addProject} />
+          <div className="h-full flex items-center justify-center">
+            <button
+              onClick={() => setShowCreate(true)}
+              className="text-blue-600 text-lg font-semibold hover:underline"
+            >
+              + Create Project
+            </button>
+          </div>
         ) : (
-          <MonacoEditor projectName={currentProject} theme={theme} />
+          <EditorLayout projectName={currentProject} theme={theme} />
+        )}
+
+        {showCreate && (
+          <CreateProjectModal
+            onClose={() => setShowCreate(false)}
+            onCreate={addProject}
+          />
         )}
       </div>
     </div>
-  )
+  );
 }

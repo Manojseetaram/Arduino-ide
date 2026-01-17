@@ -1,70 +1,160 @@
+"use client";
 
-'use client'
-import { useState } from "react"
+import { useState } from "react";
+import {
+  IconFolder,
+  IconFile,
+  IconSearch,
+  IconPlug,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+} from "@tabler/icons-react";
 
 interface SidebarProps {
-  projects: string[]
-  theme: "light" | "dark"
-  toggleTheme: () => void
-  onSelectProject: (proj: string) => void
+  currentProject: string | null;
+  theme: "light" | "dark";
 }
 
-export function Sidebar({ projects, theme, toggleTheme, onSelectProject }: SidebarProps) {
-  const [isOpen, setIsOpen] = useState(true)
+type Panel = "explorer" | "search" | "extensions";
 
-  const sidebarBg = theme === "dark" ? "bg-gray-900" : "bg-gray-200"
-  const iconBg = "bg-blue-600"
-  const iconColor = "text-white"
-  const sidebarWidth = isOpen ? 14 : 0
+export function Sidebar({
+  currentProject,
+  theme,
+}: SidebarProps) {
+  const [isOpen, setIsOpen] = useState(true);
+  const [panel, setPanel] = useState<Panel>("explorer");
+
+  const dark = theme === "dark";
 
   return (
     <div className="flex h-screen">
-      {/* Icon bar */}
-      <div className={`flex flex-col justify-between py-4 ${iconBg} w-16`}>
-        <div className="flex flex-col items-center space-y-4">
-          <button
-            className={`p-3 rounded ${iconColor} hover:bg-blue-500 transition-colors`}
-            onClick={() => setIsOpen(!isOpen)}
-          >
-            {/* Hamburger icon */}
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
+      {/* ICON BAR */}
+      <div
+        className={`w-14 flex flex-col items-center
+        ${dark ? "bg-gray-950 text-gray-300" : "bg-gray-300 text-gray-800"}`}
+      >
+        {/* OPEN / CLOSE */}
+        <button
+          onClick={() => setIsOpen((v) => !v)}
+          className="h-12 w-full flex items-center justify-center hover:bg-blue-600 hover:text-white"
+          title="Toggle Sidebar"
+        >
+          {isOpen ? (
+            <IconLayoutSidebarLeftCollapse size={20} />
+          ) : (
+            <IconLayoutSidebarLeftExpand size={20} />
+          )}
+        </button>
 
-        <div className="flex flex-col items-center space-y-4">
-          <button
-            className={`p-3 rounded ${iconColor} hover:bg-blue-500 transition-colors`}
-            onClick={toggleTheme}
-          >
-            {theme === "light" ? "🌞" : "🌙"}
-          </button>
-        </div>
+        {/* PANEL ICONS */}
+        <SidebarIcon
+          active={panel === "explorer"}
+          onClick={() => {
+            setPanel("explorer");
+            setIsOpen(true);
+          }}
+        >
+          <IconFolder size={20} />
+        </SidebarIcon>
+
+        <SidebarIcon
+          active={panel === "search"}
+          onClick={() => {
+            setPanel("search");
+            setIsOpen(true);
+          }}
+        >
+          <IconSearch size={20} />
+        </SidebarIcon>
+
+        <SidebarIcon
+          active={panel === "extensions"}
+          onClick={() => {
+            setPanel("extensions");
+            setIsOpen(true);
+          }}
+        >
+          <IconPlug size={20} />
+        </SidebarIcon>
       </div>
 
-      {/* Sidebar projects */}
+      {/* SIDEBAR PANEL */}
       <div
-        className={`flex flex-col py-4 transition-all duration-300 overflow-hidden ${sidebarBg}`}
-        style={{ width: `${sidebarWidth}rem` }}
+        className={`transition-all duration-200 overflow-hidden
+        ${isOpen ? "w-56" : "w-0"}
+        ${dark
+          ? "bg-gray-900 border-r border-gray-700 text-gray-200"
+          : "bg-gray-100 border-r border-gray-300 text-gray-800"}`}
       >
         {isOpen && (
-          <div className="px-4 flex flex-col gap-4 text-white">
-            {projects.map((proj) => (
-              <div
-                key={proj}
-                className="flex items-center gap-2 p-2 bg-gray-700 rounded hover:bg-gray-600 cursor-pointer"
-                onClick={() => onSelectProject(proj)}
-              >
-                <div className="w-6 h-6 rounded-full bg-blue-400 flex items-center justify-center text-white text-sm">
-                  {proj[0].toUpperCase()}
+          <>
+            <div className="px-4 py-2 text-xs font-semibold border-b">
+              {panel.toUpperCase()}
+            </div>
+
+            {/* EXPLORER */}
+            {panel === "explorer" && currentProject && (
+              <div className="p-2">
+                <div className="flex items-center justify-between px-2 py-1 text-sm font-medium">
+                  <span>{currentProject}</span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      title="New Folder"
+                      className="p-1 rounded hover:bg-blue-600 hover:text-white"
+                    >
+                      <IconFolder size={16} />
+                    </button>
+
+                    <button
+                      title="New File"
+                      className="p-1 rounded hover:bg-blue-600 hover:text-white"
+                    >
+                      <IconFile size={16} />
+                    </button>
+                  </div>
                 </div>
-                <span>{proj}</span>
               </div>
-            ))}
-          </div>
+            )}
+
+            {panel === "search" && (
+              <div className="p-3 text-xs opacity-70">
+                Search
+              </div>
+            )}
+
+            {panel === "extensions" && (
+              <div className="p-3 text-xs opacity-70">
+                Extensions
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
-  )
+  );
+}
+
+function SidebarIcon({
+  children,
+  onClick,
+  active,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full h-12 flex items-center justify-center
+      ${
+        active
+          ? "bg-blue-600 text-white"
+          : "hover:bg-blue-500 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
+  );
 }
