@@ -31,14 +31,19 @@ export default function DashboardPage() {
         currentProject={currentProject}
         onSelectProject={setCurrentProject}
         theme={theme}
-        files={currentProject ? projectFiles[currentProject] : []}
-        setFiles={(files) =>
-          currentProject &&
+        files={currentProject ? projectFiles[currentProject] ?? [] : []}
+
+        setFiles={(value) => {
+          if (!currentProject) return;
+
           setProjectFiles((prev) => ({
             ...prev,
-            [currentProject]: files,
-          }))
-        }
+            [currentProject]:
+              typeof value === "function"
+                ? value(prev[currentProject] ?? [])
+                : value,
+          }));
+        }}
       />
 
       <div className="flex-1">
@@ -62,6 +67,7 @@ export default function DashboardPage() {
           />
         )}
       </div>
+      
     </div>
   );
 }

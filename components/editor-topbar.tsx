@@ -11,7 +11,7 @@ export function EditorTopbar({
   theme,
   terminalOpen,
   onToggleTerminal,
-  projectName,
+ 
 }: Props) {
   return (
     <div
@@ -21,8 +21,7 @@ export function EditorTopbar({
           : "bg-zinc-100 border-zinc-300 text-zinc-800"
       }`}
     >
-      {/* Left */}
-      <span className="font-semibold">{projectName}</span>
+     
 
       {/* Right */}
       <button

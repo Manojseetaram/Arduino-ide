@@ -12,22 +12,14 @@ import {
   IconFileTypeCss,
 } from "@tabler/icons-react";
 
-/* ========= TYPES ========= */
+/* ================= TYPES ================= */
 
-export type FileNode = {
+export type ExplorerNode = {
   id: string;
   name: string;
-  type: "file";
+  type: "file" | "folder";
+  children?: ExplorerNode[];
 };
-
-export type FolderNode = {
-  id: string;
-  name: string;
-  type: "folder";
-  children: ExplorerNode[];
-};
-
-export type ExplorerNode = FileNode | FolderNode;
 
 interface SidebarProps {
   projects: string[];
@@ -35,58 +27,56 @@ interface SidebarProps {
   onSelectProject: (p: string) => void;
   theme: "light" | "dark";
   files: ExplorerNode[];
-  setFiles: (files: ExplorerNode[]) => void;
+  setFiles: React.Dispatch<React.SetStateAction<ExplorerNode[]>>;
 }
 
 type Panel = "explorer" | "search" | "extensions";
 
-/* ========= SIDEBAR ========= */
+/* ================= SIDEBAR ================= */
 
 export function Sidebar({
-  projects,
   currentProject,
-  onSelectProject,
   theme,
   files,
   setFiles,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [panel, setPanel] = useState<Panel>("explorer");
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  const [creating, setCreating] = useState<"file" | "folder" | null>(null);
+  const [tempName, setTempName] = useState("");
 
   const dark = theme === "dark";
 
-  const createFolder = () => {
-    const name = prompt("Folder name?");
-    if (!name) return;
+  /* ========= INSERT NODE ========= */
+  const insertNode = (
+    nodes: ExplorerNode[],
+    folderId: string | null,
+    newNode: ExplorerNode
+  ): ExplorerNode[] => {
+    if (!folderId) return [...nodes, newNode];
 
-    setFiles([
-      ...files,
-      {
-        id: crypto.randomUUID(),
-        name,
-        type: "folder",
-        children: [],
-      },
-    ]);
-  };
-
-  const createFile = () => {
-    const name = prompt("File name? (ex: main.rs)");
-    if (!name) return;
-
-    setFiles([
-      ...files,
-      {
-        id: crypto.randomUUID(),
-        name,
-        type: "file",
-      },
-    ]);
+    return nodes.map((node) => {
+      if (node.type === "folder") {
+        if (node.id === folderId) {
+          return {
+            ...node,
+            children: [...(node.children ?? []), newNode],
+          };
+        }
+        return {
+          ...node,
+          children: insertNode(node.children ?? [], folderId, newNode),
+        };
+      }
+      return node;
+    });
   };
 
   return (
     <div className="flex h-screen">
-      {/* LEFT BAR */}
+      {/* LEFT ICON BAR */}
       <div
         className={`w-14 flex flex-col items-center ${
           dark ? "bg-gray-950 text-gray-300" : "bg-gray-300 text-gray-800"
@@ -116,7 +106,7 @@ export function Sidebar({
         </SidebarIcon>
       </div>
 
-      {/* PANEL */}
+      {/* EXPLORER */}
       <div
         className={`transition-all duration-200 overflow-hidden ${
           isOpen ? "w-64" : "w-0"
@@ -128,19 +118,70 @@ export function Sidebar({
       >
         {isOpen && panel === "explorer" && (
           <div className="p-2">
-            {/* PROJECT HEADER */}
             {currentProject && (
               <div className="flex items-center justify-between px-2 py-1 text-sm font-semibold">
                 <span>{currentProject}</span>
+
                 <div className="flex gap-2">
-                  <IconFolder size={16} onClick={createFolder} className="cursor-pointer" />
-                  <IconFile size={16} onClick={createFile} className="cursor-pointer" />
+                  <IconFolder
+                    size={16}
+                    className="cursor-pointer"
+                    onClick={() => {
+                      console.log("📁 Start creating folder");
+                      setCreating("folder");
+                      setTempName("");
+                    }}
+                  />
+
+                  <IconFile
+                    size={16}
+                    className="cursor-pointer"
+                    onClick={() => {
+                      console.log("📄 Start creating file");
+                      setCreating("file");
+                      setTempName("");
+                    }}
+                  />
                 </div>
               </div>
             )}
 
-            {/* FILE TREE */}
-            <ExplorerTree nodes={files} />
+            {/* INLINE CREATE INPUT (✅ FIXED POSITION) */}
+            {creating && (
+              <div className="px-3 py-1">
+                <input
+                  autoFocus
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && tempName.trim()) {
+                      setFiles((prev) =>
+                        insertNode(prev, selectedFolderId, {
+                          id: crypto.randomUUID(),
+                          name: tempName.trim(),
+                          type: creating,
+                          ...(creating === "folder" ? { children: [] } : {}),
+                        })
+                      );
+                      setCreating(null);
+                      setTempName("");
+                    }
+
+                    if (e.key === "Escape") {
+                      setCreating(null);
+                      setTempName("");
+                    }
+                  }}
+                  className="w-full text-sm px-2 py-1 bg-transparent border border-blue-500 rounded outline-none"
+                  placeholder={`Enter ${creating} name`}
+                />
+              </div>
+            )}
+
+            <ExplorerTree
+              nodes={files}
+              onSelect={(id) => setSelectedFolderId(id)}
+            />
           </div>
         )}
       </div>
@@ -148,7 +189,7 @@ export function Sidebar({
   );
 }
 
-/* ========= HELPERS ========= */
+/* ================= HELPERS ================= */
 
 function SidebarIcon({
   children,
@@ -173,35 +214,70 @@ function SidebarIcon({
 
 function FileIcon({ name }: { name: string }) {
   if (name.endsWith(".rs")) return <IconBrandRust size={16} />;
-  if (name.endsWith(".c")) return <IconFileTypeCss size={16} />;
+  if (name.endsWith(".css")) return <IconFileTypeCss size={16} />;
   return <IconFile size={16} />;
 }
 
-function ExplorerTree({ nodes }: { nodes: ExplorerNode[] }) {
+/* ================= TREE ================= */
+
+function ExplorerTree({
+  nodes,
+  onSelect,
+}: {
+  nodes: ExplorerNode[];
+  onSelect: (id: string) => void;
+}) {
   if (!nodes.length) {
     return <div className="px-3 text-xs opacity-50">No files</div>;
   }
 
   return (
-    <div className="pl-4 space-y-1">
+    <div className="pl-3 space-y-1">
       {nodes.map((node) =>
         node.type === "folder" ? (
-          <div key={node.id}>
-            <div className="flex items-center gap-2 text-sm">
-              <IconFolder size={16} />
-              {node.name}
-            </div>
-          </div>
+          <FolderItem key={node.id} folder={node} onSelect={onSelect} />
         ) : (
-          <div
-            key={node.id}
-            className="flex items-center gap-2 text-sm px-2 rounded hover:bg-blue-500/20 cursor-pointer"
-          >
-            <FileIcon name={node.name} />
-            {node.name}
-          </div>
+          <FileItem key={node.id} file={node} />
         )
       )}
+    </div>
+  );
+}
+
+function FolderItem({
+  folder,
+  onSelect,
+}: {
+  folder: ExplorerNode & { type: "folder" };
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-2 text-sm cursor-pointer hover:bg-blue-500/20 px-2 rounded"
+        onClick={() => {
+          setOpen(!open);
+          onSelect(folder.id);
+        }}
+      >
+        <IconFolder size={16} />
+        {folder.name}
+      </div>
+
+      {open && (
+        <ExplorerTree nodes={folder.children ?? []} onSelect={onSelect} />
+      )}
+    </div>
+  );
+}
+
+function FileItem({ file }: { file: ExplorerNode & { type: "file" } }) {
+  return (
+    <div className="flex items-center gap-2 text-sm px-2 ml-4 rounded hover:bg-blue-500/20 cursor-pointer">
+      <FileIcon name={file.name} />
+      {file.name}
     </div>
   );
 }
