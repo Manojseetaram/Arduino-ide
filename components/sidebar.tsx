@@ -26,28 +26,34 @@ interface SidebarProps {
   currentProject: string | null;
   onSelectProject: (p: string) => void;
   theme: "light" | "dark";
-  files: ExplorerNode[];
-  setFiles: React.Dispatch<React.SetStateAction<ExplorerNode[]>>;
 }
-
-type Panel = "explorer" | "search" | "extensions";
 
 /* ================= SIDEBAR ================= */
 
 export function Sidebar({
   currentProject,
   theme,
-  files,
-  setFiles,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [panel, setPanel] = useState<Panel>("explorer");
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-
+  const [panel, setPanel] = useState<"explorer" | "search" | "extensions">(
+    "explorer"
+  );
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
+    null
+  );
   const [creating, setCreating] = useState<"file" | "folder" | null>(null);
   const [tempName, setTempName] = useState("");
 
   const dark = theme === "dark";
+
+  const [files, setFiles] = useState<ExplorerNode[]>([
+    {
+      id: crypto.randomUUID(),
+      name: currentProject || "New Project",
+      type: "folder",
+      children: [],
+    },
+  ]);
 
   /* ========= INSERT NODE ========= */
   const insertNode = (
@@ -93,15 +99,24 @@ export function Sidebar({
           )}
         </button>
 
-        <SidebarIcon active={panel === "explorer"} onClick={() => setPanel("explorer")}>
+        <SidebarIcon
+          active={panel === "explorer"}
+          onClick={() => setPanel("explorer")}
+        >
           <IconFolder size={20} />
         </SidebarIcon>
 
-        <SidebarIcon active={panel === "search"} onClick={() => setPanel("search")}>
+        <SidebarIcon
+          active={panel === "search"}
+          onClick={() => setPanel("search")}
+        >
           <IconSearch size={20} />
         </SidebarIcon>
 
-        <SidebarIcon active={panel === "extensions"} onClick={() => setPanel("extensions")}>
+        <SidebarIcon
+          active={panel === "extensions"}
+          onClick={() => setPanel("extensions")}
+        >
           <IconPlug size={20} />
         </SidebarIcon>
       </div>
@@ -127,17 +142,14 @@ export function Sidebar({
                     size={16}
                     className="cursor-pointer"
                     onClick={() => {
-                      console.log("📁 Start creating folder");
                       setCreating("folder");
                       setTempName("");
                     }}
                   />
-
                   <IconFile
                     size={16}
                     className="cursor-pointer"
                     onClick={() => {
-                      console.log("📄 Start creating file");
                       setCreating("file");
                       setTempName("");
                     }}
@@ -146,7 +158,7 @@ export function Sidebar({
               </div>
             )}
 
-            {/* INLINE CREATE INPUT (✅ FIXED POSITION) */}
+            {/* INLINE CREATE INPUT */}
             {creating && (
               <div className="px-3 py-1">
                 <input
@@ -178,10 +190,7 @@ export function Sidebar({
               </div>
             )}
 
-            <ExplorerTree
-              nodes={files}
-              onSelect={(id) => setSelectedFolderId(id)}
-            />
+            <ExplorerTree nodes={files} onSelect={setSelectedFolderId} />
           </div>
         )}
       </div>
@@ -218,8 +227,6 @@ function FileIcon({ name }: { name: string }) {
   return <IconFile size={16} />;
 }
 
-/* ================= TREE ================= */
-
 function ExplorerTree({
   nodes,
   onSelect,
@@ -227,20 +234,19 @@ function ExplorerTree({
   nodes: ExplorerNode[];
   onSelect: (id: string) => void;
 }) {
-  if (!nodes.length) {
-    return <div className="px-3 text-xs opacity-50">No files</div>;
-  }
-
   return (
-    <div className="pl-3 space-y-1">
+    <div className="pl-2 space-y-1">
       {nodes.map((node) =>
         node.type === "folder" ? (
           <FolderItem key={node.id} folder={node} onSelect={onSelect} />
         ) : (
           <FileItem key={node.id} file={node} />
+
+      
         )
       )}
     </div>
+   
   );
 }
 
