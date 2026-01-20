@@ -1,27 +1,104 @@
+// "use client";
+
+// import { useState } from "react";
+// import { Sidebar, ExplorerNode } from "@/components/sidebar";
+// import { EditorLayout } from "@/components/editor-layout";
+// import { CreateProjectModal } from "@/components/create-project-modal";
+
+// export default function DashboardPage() {
+//   const [projects, setProjects] = useState<string[]>([]);
+//   const [projectFiles, setProjectFiles] = useState<
+//     Record<string, ExplorerNode[]>
+//   >({});
+//   const [currentProject, setCurrentProject] = useState<string | null>(null);
+//   const [theme] = useState<"light" | "dark">("dark");
+//   const [showCreate, setShowCreate] = useState(false);
+
+//   const addProject = (name: string) => {
+//     const normalized =
+//       name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+
+//     setProjects((p) => [...p, normalized]);
+//     setProjectFiles((f) => ({ ...f, [normalized]: [] }));
+//     setCurrentProject(normalized);
+//     setShowCreate(false);
+//   };
+
+//   return (
+//     <div className="flex h-screen">
+//       <Sidebar
+//         projects={projects}
+//         currentProject={currentProject}
+//         onSelectProject={setCurrentProject}
+//         theme={theme}
+//         files={currentProject ? projectFiles[currentProject] ?? [] : []}
+
+//         setFiles={(value) => {
+//           if (!currentProject) return;
+
+//           setProjectFiles((prev) => ({
+//             ...prev,
+//             [currentProject]:
+//               typeof value === "function"
+//                 ? value(prev[currentProject] ?? [])
+//                 : value,
+//           }));
+//         }}
+//       />
+
+//       <div className="flex-1">
+//         {!currentProject ? (
+//           <div className="h-full flex items-center justify-center">
+//             <button
+//               onClick={() => setShowCreate(true)}
+//               className="text-blue-600 text-lg font-semibold"
+//             >
+//               + Create Project
+//             </button>
+//           </div>
+//         ) : (
+//           <EditorLayout projectName={currentProject} theme={theme} />
+//         )}
+
+//         {showCreate && (
+//           <CreateProjectModal
+//             onClose={() => setShowCreate(false)}
+//             onCreate={addProject}
+//           />
+//         )}
+//       </div>
+      
+//     </div>
+//   );
+// }
 "use client";
 
 import { useState } from "react";
-import { Sidebar, ExplorerNode } from "@/components/sidebar";
+import { Sidebar } from "@/components/sidebar";
 import { EditorLayout } from "@/components/editor-layout";
 import { CreateProjectModal } from "@/components/create-project-modal";
+import { ExplorerNode } from "@/components/explorer/types";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<string[]>([]);
-  const [projectFiles, setProjectFiles] = useState<
-    Record<string, ExplorerNode[]>
-  >({});
+  const [projectFiles, setProjectFiles] = useState<Record<string, ExplorerNode[]>>({});
   const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [theme] = useState<"light" | "dark">("dark");
   const [showCreate, setShowCreate] = useState(false);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
 
   const addProject = (name: string) => {
-    const normalized =
-      name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    const normalized = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
     setProjects((p) => [...p, normalized]);
     setProjectFiles((f) => ({ ...f, [normalized]: [] }));
     setCurrentProject(normalized);
     setShowCreate(false);
+  };
+
+  const handleFileSelect = (file: ExplorerNode) => {
+    setActiveFileId(file.id);
+    // You can handle file selection logic here
   };
 
   return (
@@ -32,7 +109,6 @@ export default function DashboardPage() {
         onSelectProject={setCurrentProject}
         theme={theme}
         files={currentProject ? projectFiles[currentProject] ?? [] : []}
-
         setFiles={(value) => {
           if (!currentProject) return;
 
@@ -44,6 +120,8 @@ export default function DashboardPage() {
                 : value,
           }));
         }}
+        onFileSelect={handleFileSelect}
+        activeFileId={activeFileId}
       />
 
       <div className="flex-1">
@@ -67,7 +145,6 @@ export default function DashboardPage() {
           />
         )}
       </div>
-      
     </div>
   );
 }
