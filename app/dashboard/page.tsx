@@ -129,7 +129,7 @@ export default function DashboardPage() {
   const currentShowTerminal = currentProject ? showTerminal[currentProject] || false : false;
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen w-screen overflow-hidden">
       <Sidebar
         projects={projects}
         currentProject={currentProject}
@@ -151,7 +151,7 @@ export default function DashboardPage() {
         activeFileId={null}
       />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {!currentProject ? (
           <div className="h-full flex items-center justify-center">
             <button
