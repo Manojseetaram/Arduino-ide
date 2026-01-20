@@ -20,3 +20,15 @@ export interface SearchResult {
   node: ExplorerNode;
   matches: { path: string; score: number };
 }
+export interface EditorTab {
+  id: string;
+  name: string;
+  path: string;
+  content?: string;
+  saved?: boolean;
+}
+
+export interface EditorState {
+  tabs: EditorTab[];
+  activeTabId: string | null;
+}
