@@ -57,3 +57,24 @@ export interface EditingState {
   nodeId: string;
   originalName: string;
 }
+// In your existing types.tsx
+export type PanelType = "explorer" | "search" | "extensions" | "postman";
+// components/explorer/types.tsx
+
+// components/explorer/types.tsx
+export interface EditorTab {
+  id: string;
+  name: string;
+  path: string;
+  content?: string;
+  saved?: boolean;
+  type?: "file" | "postman"; // Add this
+}
+
+export interface PostmanTab extends EditorTab {
+  type: "postman";
+  protocol: "HTTP" | "MQTT" | "MQTT-SN" | "COAP";
+  method?: string;
+  url?: string;
+  // Add other postman-specific properties as needed
+}

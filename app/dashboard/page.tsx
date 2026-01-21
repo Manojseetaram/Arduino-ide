@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/sidebar";
 import { MonacoEditor } from "@/components/monacoeditor";
 import { CreateProjectModal } from "@/components/create-project-modal";
 import { ExplorerNode, EditorTab } from "@/components/explorer/types";
+import { PostmanEditor } from "@/components/explorer/postman-editor";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<string[]>([]);
@@ -36,6 +37,35 @@ export default function DashboardPage() {
     setShowCreate(false);
   };
 
+  // Function to open Postman as a tab - ALWAYS CREATE NEW TAB
+  const openPostmanTab = useCallback(() => {
+    if (!currentProject) return;
+
+    const projectTabs = editorTabs[currentProject] || [];
+    
+    // ALWAYS create new Postman tab with timestamp to allow duplicates
+    const timestamp = new Date().getTime();
+    const postmanTab: EditorTab = {
+      id: crypto.randomUUID(),
+      name: `Postman ${timestamp}`, // Add timestamp to allow duplicates
+      path: `postman://api-testing-${timestamp}`,
+      saved: true,
+      type: "postman"
+    };
+
+    setEditorTabs(prev => ({
+      ...prev,
+      [currentProject]: [...(prev[currentProject] || []), postmanTab]
+    }));
+
+    setActiveTabId(prev => ({
+      ...prev,
+      [currentProject]: postmanTab.id
+    }));
+    
+    console.log("Postman tab created:", postmanTab.name);
+  }, [currentProject, editorTabs]);
+
   const handleFileSelect = useCallback((file: ExplorerNode) => {
     if (!currentProject || file.type === "folder") return;
 
@@ -54,7 +84,8 @@ export default function DashboardPage() {
         id: crypto.randomUUID(),
         name: file.name,
         path: file.path,
-        saved: true
+        saved: true,
+        type: "file"
       };
 
       setEditorTabs(prev => ({
@@ -113,7 +144,7 @@ export default function DashboardPage() {
       return {
         ...prev,
         [currentProject]: projectTabs.map(tab => 
-          tab.id === tabId ? { ...tab, saved: false } : tab
+          tab.id === tabId && tab.type !== "postman" ? { ...tab, saved: false } : tab
         )
       };
     });
@@ -132,6 +163,10 @@ export default function DashboardPage() {
   const currentActiveTabId = currentProject ? activeTabId[currentProject] || null : null;
   const currentShowTerminal = currentProject ? showTerminal[currentProject] || false : false;
   const currentFiles = currentProject ? projectFiles[currentProject] || [] : [];
+
+  // Check if active tab is Postman (any tab that starts with "Postman")
+  const activeTab = currentTabs.find(tab => tab.id === currentActiveTabId);
+  const isPostmanTab = activeTab?.type === "postman" || (activeTab?.name?.startsWith("Postman") ?? false);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -154,6 +189,7 @@ export default function DashboardPage() {
         }}
         onFileSelect={handleFileSelect}
         activeFileId={null}
+        onOpenPostman={openPostmanTab}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -166,7 +202,20 @@ export default function DashboardPage() {
               + Create New Project
             </button>
           </div>
+        ) : isPostmanTab ? (
+          // Render Postman when active tab is Postman
+          <PostmanEditor
+            projectName={currentProject}
+            theme={theme}
+            tabs={currentTabs}
+            activeTabId={currentActiveTabId}
+            onTabSelect={handleTabSelect}
+            onTabClose={handleTabClose}
+            showTerminal={currentShowTerminal}
+            onToggleTerminal={handleToggleTerminal}
+          />
         ) : (
+          // Render Monaco Editor for regular files
           <MonacoEditor
             projectName={currentProject}
             theme={theme}

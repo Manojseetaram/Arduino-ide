@@ -17,7 +17,8 @@ import {
   IconSearch, 
   IconPlug, 
   IconFilePlus, 
-  IconFolderPlus
+  IconFolderPlus,
+  IconSend
 } from "@tabler/icons-react";
 import { ExtensionsPanel } from "./explorer/extensions-panel";
 
@@ -30,7 +31,8 @@ export function Sidebar({
   setFiles: externalSetFiles,
   onFileSelect,
   activeFileId,
-}: SidebarProps) {
+  onOpenPostman,
+}: SidebarProps & { onOpenPostman?: () => void }) {
   const [isOpen, setIsOpen] = useState(true);
   const [panel, setPanel] = useState<"explorer" | "search" | "extensions">("explorer");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -401,6 +403,17 @@ export function Sidebar({
         >
           <IconPlug size={20} />
         </SidebarIcon>
+
+        {/* POSTMAN ICON - Always visible below extensions */}
+      
+          <SidebarIcon
+            onClick={onOpenPostman}
+            tooltip="Postman (API Testing)"
+            className="hover:bg-yellow-600 hover:text-white"
+          >
+            <IconSend size={20} />
+          </SidebarIcon>
+      
       </div>
 
       {/* MAIN SIDEBAR */}
