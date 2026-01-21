@@ -1,6 +1,7 @@
 import { ExplorerNode } from "./types";
 import { FileIcon } from "./utils";
-import { IconFolder } from "@tabler/icons-react";
+import { IconFolder, IconFilePlus, IconFolderPlus } from "@tabler/icons-react";
+import { useState } from "react";
 
 interface ExplorerTreeProps {
   nodes: ExplorerNode[];
@@ -10,6 +11,14 @@ interface ExplorerTreeProps {
   openFolders: Set<string>;
   activeFileId?: string | null;
   depth: number;
+  selectedFolderId: string | null;
+  creating: "file" | "folder" | null;
+  tempName: string;
+  parentId: string | null;
+  onStartCreate: (type: "file" | "folder", folderId: string) => void;
+  onCreateNode: () => void;
+  onCancelCreate: () => void;
+  onTempNameChange: (name: string) => void;
 }
 
 export function ExplorerTree({
@@ -20,6 +29,14 @@ export function ExplorerTree({
   openFolders,
   activeFileId,
   depth,
+  selectedFolderId,
+  creating,
+  tempName,
+  parentId,
+  onStartCreate,
+  onCreateNode,
+  onCancelCreate,
+  onTempNameChange,
 }: ExplorerTreeProps) {
   return (
     <div className="space-y-1">
@@ -35,6 +52,13 @@ export function ExplorerTree({
             openFolders={openFolders}
             activeFileId={activeFileId}
             depth={depth}
+            selectedFolderId={selectedFolderId}
+            creating={creating}
+            tempName={tempName}
+            onStartCreate={onStartCreate}
+            onCreateNode={onCreateNode}
+            onCancelCreate={onCancelCreate}
+            onTempNameChange={onTempNameChange}
           />
         ) : (
           <FileItem
@@ -45,6 +69,33 @@ export function ExplorerTree({
             depth={depth}
           />
         )
+      )}
+      
+      {/* Create input for this folder level */}
+      {creating && selectedFolderId === parentId && (
+        <div className="pl-2" style={{ paddingLeft: `${depth * 16 + 32}px` }}>
+          <input
+            autoFocus
+            value={tempName}
+            onChange={(e) => onTempNameChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onCreateNode();
+              if (e.key === "Escape") onCancelCreate();
+            }}
+            onBlur={() => {
+              setTimeout(() => {
+                if (tempName.trim()) onCreateNode();
+                else onCancelCreate();
+              }, 100);
+            }}
+            className={`w-full text-sm px-2 py-1 rounded outline-none ${
+              depth === 1
+                ? "bg-gray-800 border border-blue-500 text-gray-200"
+                : "bg-gray-700 border border-blue-400 text-gray-200"
+            }`}
+            placeholder={`New ${creating} name...`}
+          />
+        </div>
       )}
     </div>
   );
@@ -59,6 +110,13 @@ function FolderItem({
   openFolders,
   activeFileId,
   depth,
+  selectedFolderId,
+  creating,
+  tempName,
+  onStartCreate,
+  onCreateNode,
+  onCancelCreate,
+  onTempNameChange,
 }: {
   folder: ExplorerNode & { type: "folder" };
   onSelect: (id: string) => void;
@@ -68,22 +126,86 @@ function FolderItem({
   openFolders: Set<string>;
   activeFileId?: string | null;
   depth: number;
+  selectedFolderId: string | null;
+  creating: "file" | "folder" | null;
+  tempName: string;
+  onStartCreate: (type: "file" | "folder", folderId: string) => void;
+  onCreateNode: () => void;
+  onCancelCreate: () => void;
+  onTempNameChange: (name: string) => void;
 }) {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <div>
       <div
-        className={`flex items-center gap-2 text-sm cursor-pointer px-2 py-1 rounded hover:bg-blue-500/20`}
+        className={`group flex items-center gap-2 text-sm cursor-pointer px-2 py-1 rounded hover:bg-blue-500/20`}
         onClick={() => {
           onToggle(folder.id);
           onSelect(folder.id);
         }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
         <div className={`transform transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`}>
           <IconFolder size={16} />
         </div>
         <span className="flex-1">{folder.name}</span>
+        
+        {/* Create buttons - show on hover or when folder is selected */}
+        {(isHovered || selectedFolderId === folder.id) && (
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="p-1 rounded hover:bg-gray-700 text-gray-300 hover:text-blue-400"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartCreate("file", folder.id);
+              }}
+              title="New File"
+            >
+              <IconFilePlus size={12} />
+            </button>
+            <button
+              className="p-1 rounded hover:bg-gray-700 text-gray-300 hover:text-blue-400"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartCreate("folder", folder.id);
+              }}
+              title="New Folder"
+            >
+              <IconFolderPlus size={12} />
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Create input for this folder */}
+      {creating && selectedFolderId === folder.id && (
+        <div className="pl-2" style={{ paddingLeft: `${(depth + 1) * 16 + 32}px` }}>
+          <input
+            autoFocus
+            value={tempName}
+            onChange={(e) => onTempNameChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onCreateNode();
+              if (e.key === "Escape") onCancelCreate();
+            }}
+            onBlur={() => {
+              setTimeout(() => {
+                if (tempName.trim()) onCreateNode();
+                else onCancelCreate();
+              }, 100);
+            }}
+            className={`w-full text-sm px-2 py-1 rounded outline-none ${
+              depth === 1
+                ? "bg-gray-800 border border-blue-500 text-gray-200"
+                : "bg-gray-700 border border-blue-400 text-gray-200"
+            }`}
+            placeholder={`New ${creating} name...`}
+          />
+        </div>
+      )}
 
       {isOpen && folder.children && (
         <ExplorerTree
@@ -94,6 +216,14 @@ function FolderItem({
           openFolders={openFolders}
           activeFileId={activeFileId}
           depth={depth + 1}
+          selectedFolderId={selectedFolderId}
+          creating={creating}
+          tempName={tempName}
+          parentId={folder.id}
+          onStartCreate={onStartCreate}
+          onCreateNode={onCreateNode}
+          onCancelCreate={onCancelCreate}
+          onTempNameChange={onTempNameChange}
         />
       )}
     </div>

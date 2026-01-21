@@ -21,10 +21,14 @@ export default function DashboardPage() {
   const [showTerminal, setShowTerminal] = useState<Record<string, boolean>>({});
 
   const addProject = (name: string) => {
-    const normalized = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    const normalized = name.trim();
+    if (!normalized) return;
 
     setProjects((p) => [...p, normalized]);
+    
+    // Start with empty files array for the new project
     setProjectFiles((f) => ({ ...f, [normalized]: [] }));
+    
     setEditorTabs((t) => ({ ...t, [normalized]: [] }));
     setActiveTabId((a) => ({ ...a, [normalized]: null }));
     setShowTerminal((s) => ({ ...s, [normalized]: false }));
@@ -127,6 +131,7 @@ export default function DashboardPage() {
   const currentTabs = currentProject ? editorTabs[currentProject] || [] : [];
   const currentActiveTabId = currentProject ? activeTabId[currentProject] || null : null;
   const currentShowTerminal = currentProject ? showTerminal[currentProject] || false : false;
+  const currentFiles = currentProject ? projectFiles[currentProject] || [] : [];
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -135,7 +140,7 @@ export default function DashboardPage() {
         currentProject={currentProject}
         onSelectProject={setCurrentProject}
         theme={theme}
-        files={currentProject ? projectFiles[currentProject] ?? [] : []}
+        files={currentFiles}
         setFiles={(value) => {
           if (!currentProject) return;
 
