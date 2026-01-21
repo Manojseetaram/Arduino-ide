@@ -144,6 +144,28 @@ export function Sidebar({
     setShowNewProjectInput(false);
   };
 
+  /* ========= PANEL HANDLING (VS Code style) ========= */
+  const handlePanelClick = useCallback((newPanel: "explorer" | "search" | "extensions") => {
+    if (!isOpen) {
+      // If sidebar is closed, open it and set the panel
+      setIsOpen(true);
+      setPanel(newPanel);
+    } else if (panel === newPanel) {
+      // If sidebar is open and same panel is clicked, close sidebar
+      setIsOpen(false);
+    } else {
+      // If sidebar is open and different panel is clicked, switch panel
+      setPanel(newPanel);
+    }
+  }, [isOpen, panel]);
+
+  const handlePostmanClick = useCallback(() => {
+    if (onOpenPostman) {
+      // Always open Postman in main editor, not in sidebar
+      onOpenPostman();
+    }
+  }, [onOpenPostman]);
+
   /* ========= RENDER PANELS ========= */
   const renderPanel = () => {
     switch (panel) {
@@ -369,9 +391,11 @@ export function Sidebar({
           dark ? "bg-gray-950 text-gray-300" : "bg-gray-300 text-gray-800"
         }`}
       >
+        {/* TOGGLE BUTTON - Shows current state */}
         <button
-          onClick={() => setIsOpen((v) => !v)}
+          onClick={() => setIsOpen(!isOpen)}
           className="h-12 w-full flex items-center justify-center hover:bg-blue-600 hover:text-white"
+          title={isOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           {isOpen ? (
             <IconLayoutSidebarLeftCollapse size={20} />
@@ -380,40 +404,43 @@ export function Sidebar({
           )}
         </button>
 
+        {/* EXPLORER ICON */}
         <SidebarIcon
           active={panel === "explorer"}
-          onClick={() => setPanel("explorer")}
+          onClick={() => handlePanelClick("explorer")}
           tooltip="Explorer"
         >
           <IconFolder size={20} />
         </SidebarIcon>
 
+        {/* SEARCH ICON */}
         <SidebarIcon
           active={panel === "search"}
-          onClick={() => setPanel("search")}
+          onClick={() => handlePanelClick("search")}
           tooltip="Search"
         >
           <IconSearch size={20} />
         </SidebarIcon>
 
+        {/* EXTENSIONS ICON */}
         <SidebarIcon
           active={panel === "extensions"}
-          onClick={() => setPanel("extensions")}
+          onClick={() => handlePanelClick("extensions")}
           tooltip="Extensions"
         >
           <IconPlug size={20} />
         </SidebarIcon>
 
-        {/* POSTMAN ICON - Always visible below extensions */}
-      
+        {/* POSTMAN ICON - Always visible at bottom */}
+        <div className="mt-auto">
           <SidebarIcon
-            onClick={onOpenPostman}
+            onClick={handlePostmanClick}
             tooltip="Postman (API Testing)"
             className="hover:bg-yellow-600 hover:text-white"
           >
             <IconSend size={20} />
           </SidebarIcon>
-      
+        </div>
       </div>
 
       {/* MAIN SIDEBAR */}
