@@ -47,17 +47,33 @@ export function Sidebar({
   const [internalFiles, internalSetFiles] = useState<ExplorerNode[]>(() => {
     if (externalFiles) return externalFiles;
     
-    return currentProject ? [{
+    // Return empty array - we'll manage files per project separately
+    return [];
+  });
+
+  const files = externalFiles || internalFiles;
+  const setFiles = externalSetFiles || internalSetFiles;
+
+  // Get files for current project only
+  const getCurrentProjectFiles = useCallback(() => {
+    if (!currentProject) return [];
+    
+    // Find existing project folder
+    const projectNode = files.find(f => f.name === currentProject && f.type === "folder");
+    
+    if (projectNode) {
+      return [projectNode];
+    }
+    
+    // Create empty project folder if it doesn't exist
+    return [{
       id: crypto.randomUUID(),
       name: currentProject,
       type: "folder" as const,
       path: currentProject,
       children: [],
-    }] : [];
-  });
-
-  const files = externalFiles || internalFiles;
-  const setFiles = externalSetFiles || internalSetFiles;
+    }];
+  }, [currentProject, files]);
 
   /* ========= FOLDER TOGGLE ========= */
   const toggleFolder = useCallback((folderId: string) => {
@@ -91,7 +107,19 @@ export function Sidebar({
       ...(creating === "folder" ? { children: [] } : {}),
     };
 
-    setFiles(prev => insertNode(prev, selectedFolderId, newNode));
+    // Get current project files
+    const currentFiles = getCurrentProjectFiles();
+    
+    // Update files for current project only
+    const updatedFiles = insertNode(currentFiles, selectedFolderId, newNode);
+    
+    // Replace the project folder in the files array
+    setFiles(prev => {
+      // Remove existing project folder
+      const filtered = prev.filter(f => !(f.name === currentProject && f.type === "folder"));
+      // Add updated project folder
+      return [...filtered, ...updatedFiles];
+    });
 
     if (creating === "folder" && selectedFolderId) {
       setOpenFolders(prev => new Set(prev).add(selectedFolderId));
@@ -99,7 +127,7 @@ export function Sidebar({
 
     setCreating(null);
     setTempName("");
-  }, [tempName, creating, selectedFolderId, setFiles]);
+  }, [tempName, creating, selectedFolderId, currentProject, getCurrentProjectFiles, setFiles]);
 
   const handleCancelCreate = useCallback(() => {
     setCreating(null);
@@ -189,6 +217,7 @@ export function Sidebar({
                           onClick={(e) => {
                             e.stopPropagation();
                             console.log("File icon clicked for project:", project);
+                            
                             // Find or create project folder
                             let projectNode = files.find(f => f.name === project && f.type === "folder");
                             
@@ -201,6 +230,7 @@ export function Sidebar({
                                 path: project,
                                 children: [],
                               };
+                              // Add to files
                               setFiles(prev => [...prev, projectNode]);
                             }
                             
@@ -231,6 +261,7 @@ export function Sidebar({
                           onClick={(e) => {
                             e.stopPropagation();
                             console.log("Folder icon clicked for project:", project);
+                            
                             // Find or create project folder
                             let projectNode = files.find(f => f.name === project && f.type === "folder");
                             
@@ -243,6 +274,7 @@ export function Sidebar({
                                 path: project,
                                 children: [],
                               };
+                              // Add to files
                               setFiles(prev => [...prev, projectNode]);
                             }
                             
@@ -277,30 +309,36 @@ export function Sidebar({
               </div>
             </div>
 
-            {/* FILE EXPLORER SECTION */}
+            {/* FILE EXPLORER SECTION - Only show when a project is selected */}
             <div className="flex-1 overflow-auto">
-              <ExplorerPanel
-                currentProject={currentProject}
-                theme={theme}
-                files={files}
-                selectedFolderId={selectedFolderId}
-                creating={creating}
-                tempName={tempName}
-                openFolders={openFolders}
-                activeFileId={activeFileId}
-                onFolderSelect={setSelectedFolderId}
-                onFileSelect={onFileSelect}
-                onFolderToggle={toggleFolder}
-                onStartCreate={(type, folderId) => {
-                  console.log("Start create:", type, "in folder:", folderId);
-                  setSelectedFolderId(folderId);
-                  setCreating(type);
-                  setTempName("");
-                }}
-                onCreateNode={handleCreateNode}
-                onCancelCreate={handleCancelCreate}
-                onTempNameChange={setTempName}
-              />
+              {currentProject ? (
+                <ExplorerPanel
+                  currentProject={currentProject}
+                  theme={theme}
+                  files={getCurrentProjectFiles()} // Pass only current project files
+                  selectedFolderId={selectedFolderId}
+                  creating={creating}
+                  tempName={tempName}
+                  openFolders={openFolders}
+                  activeFileId={activeFileId}
+                  onFolderSelect={setSelectedFolderId}
+                  onFileSelect={onFileSelect}
+                  onFolderToggle={toggleFolder}
+                  onStartCreate={(type, folderId) => {
+                    console.log("Start create:", type, "in folder:", folderId);
+                    setSelectedFolderId(folderId);
+                    setCreating(type);
+                    setTempName("");
+                  }}
+                  onCreateNode={handleCreateNode}
+                  onCancelCreate={handleCancelCreate}
+                  onTempNameChange={setTempName}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  Select a project to view files
+                </div>
+              )}
             </div>
           </div>
         );
