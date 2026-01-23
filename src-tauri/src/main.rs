@@ -1,22 +1,25 @@
-#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod state;
 mod commands;
 mod services;
+mod utils;
 mod models;
 mod protocols;
-mod menu;
-mod utils;
-mod state;
-use menu::app_menu::{build_menu, handle_menu};
+
+use state::app_state::AppState;
 
 fn main() {
     tauri::Builder::default()
-        .menu(build_menu())
-        .on_menu_event(handle_menu)
+        .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
-           
-            commands::universal::send_universal
+            commands::project::create_project,
+            commands::build::build_project,
+            commands::artifacts::get_build_artifacts,
+            commands::upload::upload_bin,
+            commands::controllers::select_controllers,
+            commands::flash::flash,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("error running tauri app");
 }
