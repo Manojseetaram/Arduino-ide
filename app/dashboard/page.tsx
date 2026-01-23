@@ -6,6 +6,8 @@ import { MonacoEditor } from "@/components/monacoeditor";
 import { CreateProjectModal } from "@/components/create-project-modal";
 import { ExplorerNode, EditorTab } from "@/components/explorer/types";
 import { PostmanEditor } from "@/components/explorer/postman-editor";
+import { invoke } from "@tauri-apps/api/tauri";
+import { message } from "@tauri-apps/api/dialog";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<string[]>([]);
@@ -21,21 +23,34 @@ export default function DashboardPage() {
   // Terminal state per project
   const [showTerminal, setShowTerminal] = useState<Record<string, boolean>>({});
 
-  const addProject = (name: string) => {
-    const normalized = name.trim();
-    if (!normalized) return;
+  const addProject = async (name: string) => {
+  const normalized = name.trim();
+  if (!normalized) return;
 
+  try {
+    await invoke("create_project", {
+      name: normalized,
+      basePath: "/home/manoj/esp-projects" // 🔴 CHANGE THIS
+    });
+
+    // UI update ONLY after success
     setProjects((p) => [...p, normalized]);
-    
-    // Start with empty files array for the new project
     setProjectFiles((f) => ({ ...f, [normalized]: [] }));
-    
     setEditorTabs((t) => ({ ...t, [normalized]: [] }));
     setActiveTabId((a) => ({ ...a, [normalized]: null }));
     setShowTerminal((s) => ({ ...s, [normalized]: false }));
     setCurrentProject(normalized);
     setShowCreate(false);
-  };
+
+  } catch (err) {
+  await message(
+    String(err),
+    { title: "Project Creation Failed", type: "error" }
+  );
+}
+
+};
+
 
   // Function to open Postman as a tab - ALWAYS CREATE NEW TAB
   const openPostmanTab = useCallback(() => {
