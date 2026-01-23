@@ -5,7 +5,7 @@ import {
   IconFileTypeJsx,
   IconFileTypeJs,
   IconFileTypeHtml,
-  IconFileTypeJson,
+  IconFileCode, // Changed from IconFileTypeJson
   IconFileTypeTs,
   IconFile,
 } from "@tabler/icons-react";
@@ -20,9 +20,11 @@ const fileIcons: Record<string, React.ReactNode> = {
   '.jsx': React.createElement(IconFileTypeJsx, { size: 16 }),
   '.js': React.createElement(IconFileTypeJs, { size: 16 }),
   '.html': React.createElement(IconFileTypeHtml, { size: 16 }),
-  '.json': React.createElement(IconFileTypeJson, { size: 16 }),
+  '.json': React.createElement(IconFileCode, { size: 16 }), // Changed here
   '.ts': React.createElement(IconFileTypeTs, { size: 16 }),
 };
+
+// ... rest of your code
 
 export function FileIcon({ name }: { name: string }) {
   const extension = Object.keys(fileIcons).find(ext => name.endsWith(ext));
