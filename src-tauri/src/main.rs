@@ -6,6 +6,7 @@ mod models;
 mod protocols;
 mod menu;
 mod utils;
+mod state;
 use menu::app_menu::{build_menu, handle_menu};
 
 fn main() {
