@@ -52,7 +52,37 @@ const addProject = async (name: string) => {
     console.error(err);
   }
 };
+// Add this function in dashboard/page.tsx
+const debugFileStructure = useCallback(() => {
+  if (!currentProject) return;
+  
+  const files = projectFiles[currentProject] || [];
+  console.log("=== DEBUG File Structure ===");
+  console.log("Current Project:", currentProject);
+  console.log("Files array:", files);
+  
+  // Recursively log all files and folders
+  const logNode = (node: ExplorerNode, depth: number = 0) => {
+    const indent = "  ".repeat(depth);
+    console.log(`${indent}${node.type === 'folder' ? '📁' : '📄'} ${node.name} (${node.id})`);
+    if (node.type === 'folder' && node.children) {
+      node.children.forEach(child => logNode(child, depth + 1));
+    }
+  };
+  
+  files.forEach(node => logNode(node));
+  console.log("=== END DEBUG ===");
+}, [currentProject, projectFiles]);
 
+// Add a debug button in your return statement (temporarily)
+{currentProject && (
+  <button 
+    onClick={debugFileStructure}
+    className="absolute bottom-4 right-4 bg-red-500 text-white p-2 rounded text-xs z-50"
+  >
+    Debug Files
+  </button>
+)}
 
   // Function to open Postman as a tab - ALWAYS CREATE NEW TAB
   const openPostmanTab = useCallback(() => {

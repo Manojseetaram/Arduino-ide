@@ -17,10 +17,11 @@ interface ExplorerPanelProps {
   onFolderSelect: (id: string) => void;
   onFileSelect?: (file: ExplorerNode) => void;
   onFolderToggle: (id: string) => void;
-  onStartCreate: (type: "file" | "folder", folderId: string) => void; // Updated
+  onStartCreate: (type: "file" | "folder", folderId: string) => void;
   onCreateNode: () => void;
   onCancelCreate: () => void;
   onTempNameChange: (name: string) => void;
+  showProjectHeader?: boolean; // ADD THIS LINE
 }
 
 export function ExplorerPanel({
@@ -39,14 +40,20 @@ export function ExplorerPanel({
   onCreateNode,
   onCancelCreate,
   onTempNameChange,
+  showProjectHeader = true, // ADD THIS LINE WITH DEFAULT VALUE
 }: ExplorerPanelProps) {
   const dark = theme === "dark";
   const projectNode = files[0]; // First node is the project folder
 
+  // If there's no current project or no project node, don't render anything
+  if (!currentProject || !projectNode) {
+    return null;
+  }
+
   return (
     <div className="p-2">
-      {/* Project Header */}
-      {currentProject && projectNode && (
+      {/* Project Header - Only show if showProjectHeader is true */}
+      {showProjectHeader && (
         <div className="mb-2">
           <div
             className={`group flex items-center justify-between px-2 py-1.5 rounded text-sm font-semibold cursor-pointer ${

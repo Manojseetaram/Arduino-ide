@@ -1,5 +1,6 @@
+// components/explorer-tree.tsx
 import { ExplorerNode } from "./types";
-import { FileIcon } from "./utils";
+import { FileIcon, sortExplorerNodes } from "./utils";
 import { IconFolder, IconFilePlus, IconFolderPlus } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -38,9 +39,19 @@ export function ExplorerTree({
   onCancelCreate,
   onTempNameChange,
 }: ExplorerTreeProps) {
+  
+  // Sort nodes: folders first, then files alphabetically
+  const sortedNodes = sortExplorerNodes(nodes);
+  
+  // DEBUG: Log nodes to see what's coming in
+  if (nodes.length > 0 && depth === 0) {
+    console.log("ExplorerTree - Root nodes:", nodes);
+    console.log("Sorted nodes:", sortedNodes);
+  }
+
   return (
     <div className="space-y-1">
-      {nodes.map((node) =>
+      {sortedNodes.map((node) =>
         node.type === "folder" ? (
           <FolderItem
             key={node.id}
@@ -135,12 +146,16 @@ function FolderItem({
   onTempNameChange: (name: string) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  
+  // DEBUG: Log folder info
+  console.log(`FolderItem: ${folder.name} (${folder.id}), children:`, folder.children?.length || 0);
 
   return (
     <div>
       <div
         className={`group flex items-center gap-2 text-sm cursor-pointer px-2 py-1 rounded hover:bg-blue-500/20`}
         onClick={() => {
+          console.log(`Toggling folder: ${folder.name}`);
           onToggle(folder.id);
           onSelect(folder.id);
         }}
@@ -162,7 +177,7 @@ function FolderItem({
                 e.stopPropagation();
                 onStartCreate("file", folder.id);
               }}
-              title="New File"
+              title="New C File"
             >
               <IconFilePlus size={12} />
             </button>
@@ -207,7 +222,7 @@ function FolderItem({
         </div>
       )}
 
-      {isOpen && folder.children && (
+      {isOpen && folder.children && folder.children.length > 0 && (
         <ExplorerTree
           nodes={folder.children}
           onFolderSelect={onSelect}
@@ -241,6 +256,8 @@ function FileItem({
   isActive: boolean;
   depth: number;
 }) {
+  console.log(`FileItem: ${file.name} at depth ${depth}`);
+  
   return (
     <div
       onClick={onClick}
