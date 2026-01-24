@@ -7,10 +7,14 @@ import { CreateProjectModal } from "@/components/create-project-modal";
 import { ExplorerNode, EditorTab } from "@/components/explorer/types";
 import { PostmanEditor } from "@/components/explorer/postman-editor";
 import { invoke } from "@tauri-apps/api/tauri";
-import { message } from "@tauri-apps/api/dialog";
-
+type Project = {
+  name: string;
+  path: string;
+};
 export default function DashboardPage() {
-  const [projects, setProjects] = useState<string[]>([]);
+  // const [projects, setProjects] = useState<string[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+
   const [projectFiles, setProjectFiles] = useState<Record<string, ExplorerNode[]>>({});
   const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [theme] = useState<"light" | "dark">("dark");
@@ -23,32 +27,30 @@ export default function DashboardPage() {
   // Terminal state per project
   const [showTerminal, setShowTerminal] = useState<Record<string, boolean>>({});
 
-  const addProject = async (name: string) => {
-  const normalized = name.trim();
-  if (!normalized) return;
-
+const addProject = async (name: string) => {
   try {
-    await invoke("create_project", {
-      name: normalized,
-      basePath: "/home/manoj/esp-projects" // 🔴 CHANGE THIS
+    const projectPath: string = await invoke("create_project", { name });
+
+    const files: ExplorerNode[] = await invoke("list_project_files", {
+      projectPath,
     });
 
-    // UI update ONLY after success
-    setProjects((p) => [...p, normalized]);
-    setProjectFiles((f) => ({ ...f, [normalized]: [] }));
-    setEditorTabs((t) => ({ ...t, [normalized]: [] }));
-    setActiveTabId((a) => ({ ...a, [normalized]: null }));
-    setShowTerminal((s) => ({ ...s, [normalized]: false }));
-    setCurrentProject(normalized);
+    setProjects(prev => [...prev, { name, path: projectPath }]);
+
+    setProjectFiles(prev => ({
+      ...prev,
+      [name]: files,
+    }));
+
+    setEditorTabs(prev => ({ ...prev, [name]: [] }));
+    setActiveTabId(prev => ({ ...prev, [name]: null }));
+    setShowTerminal(prev => ({ ...prev, [name]: false }));
+
+    setCurrentProject(name);
     setShowCreate(false);
-
   } catch (err) {
-  await message(
-    String(err),
-    { title: "Project Creation Failed", type: "error" }
-  );
-}
-
+    console.error(err);
+  }
 };
 
 
@@ -185,27 +187,27 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
-      <Sidebar
-        projects={projects}
-        currentProject={currentProject}
-        onSelectProject={setCurrentProject}
-        theme={theme}
-        files={currentFiles}
-        setFiles={(value) => {
-          if (!currentProject) return;
+<Sidebar
+  projects={projects.map(p => p.name)}
+  currentProject={currentProject}
+  onSelectProject={setCurrentProject}
+  theme={theme}
+  files={currentFiles}
+  setFiles={(value) => {
+    if (!currentProject) return;
 
-          setProjectFiles((prev) => ({
-            ...prev,
-            [currentProject]:
-              typeof value === "function"
-                ? value(prev[currentProject] ?? [])
-                : value,
-          }));
-        }}
-        onFileSelect={handleFileSelect}
-        activeFileId={null}
-        onOpenPostman={openPostmanTab}
-      />
+    setProjectFiles((prev) => ({
+      ...prev,
+      [currentProject]:
+        typeof value === "function"
+          ? value(prev[currentProject] ?? [])
+          : value,
+    }));
+  }}
+  onFileSelect={handleFileSelect}
+  activeFileId={null}
+  onOpenPostman={openPostmanTab}
+/>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {!currentProject ? (

@@ -57,26 +57,27 @@ export function Sidebar({
   const setFiles = externalSetFiles || internalSetFiles;
 
   // Get files for current project only
-  const getCurrentProjectFiles = useCallback(() => {
-    if (!currentProject) return [];
-    
-    // Find existing project folder
-    const projectNode = files.find(f => f.name === currentProject && f.type === "folder");
-    
-    if (projectNode) {
-      return [projectNode];
-    }
-    
-    // Create empty project folder if it doesn't exist
-    return [{
-      id: crypto.randomUUID(),
-      name: currentProject,
-      type: "folder" as const,
-      path: currentProject,
-      children: [],
-    }];
-  }, [currentProject, files]);
+ const getCurrentProjectFiles = useCallback(() => {
+  if (!currentProject) return [];
 
+  // Find existing project folder
+  const projectNode = files.find(f => f.name === currentProject && f.type === "folder");
+
+  if (projectNode) {
+    return [projectNode]; // Return the existing folder only
+  }
+
+  // If somehow missing, create a dummy (should be rare)
+  return [{
+    id: crypto.randomUUID(),
+    name: currentProject,
+    type: "folder" as const,
+    path: currentProject,
+    children: [],
+  }];
+}, [currentProject, files]);
+
+  
   /* ========= FOLDER TOGGLE ========= */
   const toggleFolder = useCallback((folderId: string) => {
     setOpenFolders(prev => {
@@ -244,28 +245,20 @@ export function Sidebar({
                             
                             // Find or create project folder
                             let projectNode = files.find(f => f.name === project && f.type === "folder");
-                            
-                            if (!projectNode) {
-                              // Create project folder if it doesn't exist
-                              projectNode = {
-                                id: crypto.randomUUID(),
-                                name: project,
-                                type: "folder" as const,
-                                path: project,
-                                children: [],
-                              };
-                              // Add to files
-                              setFiles(prev => [...prev, projectNode]);
-                            }
-                            
-                            setSelectedFolderId(projectNode.id);
-                            setCreating("file");
-                            setTempName("");
-                            
-                            // Ensure project is open
-                            if (!openFolders.has(projectNode.id)) {
-                              toggleFolder(projectNode.id);
-                            }
+
+if (!projectNode) {
+  // Instead of creating a new project folder here, just return early
+  console.warn("Project folder not found in files yet!");
+  return;
+}
+
+setSelectedFolderId(projectNode.id);
+setCreating("file"); // or "folder"
+setTempName("");
+
+// Ensure project is open
+if (!openFolders.has(projectNode.id)) toggleFolder(projectNode.id);
+
                             
                             // Select project if not selected
                             if (currentProject !== project) {
@@ -394,7 +387,7 @@ export function Sidebar({
         {/* TOGGLE BUTTON - Shows current state */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="h-12 w-full flex items-center justify-center hover:bg-blue-600 hover:text-white"
+          className="h-8 w-full flex items-center justify-center hover:bg-blue-600 hover:text-white"
           title={isOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           {isOpen ? (

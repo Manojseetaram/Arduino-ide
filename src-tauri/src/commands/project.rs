@@ -1,34 +1,41 @@
 use tauri::command;
 use std::fs;
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Command;
+use std::env;
 
 #[command]
 pub fn create_project(name: String) -> Result<String, String> {
-    let mut base_path = dirs::home_dir().ok_or("Failed to find home directory")?;
-    base_path.push("esp-projects");
+    if name.trim().is_empty() {
+        return Err("Project name cannot be empty".into());
+    }
 
+    let home = dirs::home_dir().ok_or("Failed to find home directory")?;
+
+    let base_path = home.join("esp-projects");
     fs::create_dir_all(&base_path)
         .map_err(|e| format!("Failed to create base path: {}", e))?;
 
-    // Command to run in a shell that sources export.sh
-    let shell_cmd = format!(
-        ". ~/esp/esp-idf/export.sh && python3 ~/esp/esp-idf/tools/idf.py create-project {}",
-        name
-    );
+    let idf_path = home.join("esp/esp-idf");
+    let python = home.join(".espressif/python_env/idf6.0_py3.14_env/bin/python");
+    let idf_py = idf_path.join("tools/idf.py");
 
-    let status = Command::new("bash")
-        .arg("-c")
-        .arg(shell_cmd)
+    if !python.exists() {
+        return Err("ESP-IDF python environment not found".into());
+    }
+
+    let status = Command::new(&python)
+        .arg(idf_py)
+        .arg("create-project")
+        .arg(&name)
         .current_dir(&base_path)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+        .env("IDF_PATH", &idf_path)
+        .env("PYTHONPATH", "")
         .status()
         .map_err(|e| format!("Failed to run idf.py: {}", e))?;
 
-    if status.success() {
-        Ok(base_path.join(&name).to_string_lossy().to_string())
-    } else {
-        Err("Project creation failed".into())
+    if !status.success() {
+        return Err("idf.py create-project failed".into());
     }
+
+    Ok(base_path.join(&name).to_string_lossy().to_string())
 }
