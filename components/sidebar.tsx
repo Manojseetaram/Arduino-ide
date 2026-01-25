@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
@@ -12,10 +12,11 @@ import {
   IconSend,
   IconChevronRight,
   IconX,
+  IconPlus,
 } from "@tabler/icons-react";
 
 import { SidebarProps, ExplorerNode } from "@/components/explorer/types";
-import { getFileExtension, insertNode, isEspIdfFile } from "@/components/explorer/utils";
+import { getFileExtension } from "@/components/explorer/utils";
 import { SearchPanel } from "@/components/explorer/search-panel";
 import { ExplorerPanel } from "@/components/explorer/explorer-panel";
 import { SidebarIcon } from "@/components/explorer/sidebar-icon";
@@ -41,75 +42,45 @@ export function Sidebar({
   const [showNewProjectInput, setShowNewProjectInput] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [hoveredProject, setHoveredProject] = useState<string | null>(null);
-  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  const [internalFiles, internalSetFiles] = useState<ExplorerNode[]>(() => {
-    if (externalFiles) return externalFiles;
-    return [];
-  });
+  const files = externalFiles || [];
+  const setFiles = externalSetFiles || (() => {});
 
-  const files = externalFiles || internalFiles;
-  const setFiles = externalSetFiles || internalSetFiles;
-
-  // Filter ESP-IDF files (CMake files) from file tree
-  const filterEspIdfFiles = useCallback((nodes: ExplorerNode[]): ExplorerNode[] => {
-    return nodes
-      .filter(node => {
-        if (node.type === "folder") {
-          return true; // Always show folders
-        }
-        // Filter out ESP-IDF CMake/config files from tree
-        return !isEspIdfFile(node.name);
-      })
-      .map(node => {
-        if (node.type === "folder" && node.children) {
-          return {
-            ...node,
-            children: filterEspIdfFiles(node.children)
-          };
-        }
-        return node;
-      });
-  }, []);
-
-  const getCurrentProjectFiles = useCallback(() => {
-    if (!currentProject) return [];
-
-    const projectNode = files.find(f => f.name === currentProject && f.type === "folder");
+  // Get project node for current project
+  const getCurrentProjectNode = useCallback(() => {
+    if (!currentProject) return null;
     
+    // Find existing project folder in files
+    const projectNode = files.find(f => f.name === currentProject && f.type === "folder");
+    // return files[0] ?? null;
+
     if (projectNode) {
-      // Apply ESP-IDF filtering to the project files
-      const filteredProjectNode = {
-        ...projectNode,
-        children: projectNode.children ? filterEspIdfFiles(projectNode.children) : []
-      };
-      return [filteredProjectNode];
+      return projectNode;
     }
 
-    return [{
-      id: crypto.randomUUID(),
+    // If not found, create a temporary node (but don't save it yet)
+    return {
+      id: currentProject,
       name: currentProject,
       type: "folder" as const,
       path: currentProject,
       children: [],
-    }];
-  }, [currentProject, files, filterEspIdfFiles]);
-
-  // Clear hover timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (hoverTimeout) clearTimeout(hoverTimeout);
     };
-  }, [hoverTimeout]);
+  }, [currentProject, files]);
 
   const toggleFolder = useCallback((folderId: string) => {
     setOpenFolders(prev => {
       const next = new Set(prev);
-      next.has(folderId) ? next.delete(folderId) : next.add(folderId);
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
+      }
       return next;
     });
   }, []);
 
+  // FIXED: handleCreateNode function
   const handleCreateNode = useCallback(() => {
     if (!tempName.trim() || !creating) {
       setCreating(null);
@@ -117,32 +88,63 @@ export function Sidebar({
       return;
     }
 
+    if (!currentProject) return;
+
     const extension = creating === "file" ? getFileExtension(tempName) : "";
     const finalName = creating === "file" && !extension ? `${tempName}.cpp` : tempName;
 
+    // Create the new node
     const newNode: ExplorerNode = {
-      id: crypto.randomUUID(),
+      id: `${Date.now()}-${finalName}`, // Simple ID
       name: finalName,
       type: creating,
-      path: finalName,
+      path: `${currentProject}/${finalName}`,
       ...(creating === "folder" ? { children: [] } : {}),
     };
 
-    const currentFiles = getCurrentProjectFiles();
-    const updatedFiles = insertNode(currentFiles, selectedFolderId, newNode);
-    
-    setFiles(prev => {
-      const filtered = prev.filter(f => !(f.name === currentProject && f.type === "folder"));
-      return [...filtered, ...updatedFiles];
-    });
+    // Get current project node
+    let projectNode = getCurrentProjectNode();
+    if (!projectNode) return;
 
+    // Find where to insert the new node
+    const insertIntoNode = (nodes: ExplorerNode[], targetId: string | null): ExplorerNode[] => {
+      if (!targetId) {
+        // Insert at root (project level)
+        return [...nodes, newNode];
+      }
+
+      return nodes.map(node => {
+        if (node.id === targetId && node.type === "folder") {
+          return {
+            ...node,
+            children: [...(node.children || []), newNode]
+          };
+        }
+        
+        if (node.type === "folder" && node.children) {
+          return {
+            ...node,
+            children: insertIntoNode(node.children, targetId)
+          };
+        }
+        
+        return node;
+      });
+    };
+
+    // Update files
+    const updatedFiles = insertIntoNode(files, selectedFolderId);
+    setFiles(updatedFiles);
+
+    // Open the folder if we created a folder
     if (creating === "folder" && selectedFolderId) {
       setOpenFolders(prev => new Set(prev).add(selectedFolderId));
     }
 
+    // Reset creation state
     setCreating(null);
     setTempName("");
-  }, [tempName, creating, selectedFolderId, currentProject, getCurrentProjectFiles, setFiles]);
+  }, [tempName, creating, selectedFolderId, currentProject, files, setFiles, getCurrentProjectNode]);
 
   const handleCancelCreate = useCallback(() => {
     setCreating(null);
@@ -172,193 +174,35 @@ export function Sidebar({
     if (onOpenPostman) onOpenPostman();
   }, [onOpenPostman]);
 
-  // Handle project hover with delay for better UX
-  const handleProjectHover = useCallback((project: string | null) => {
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
-    }
+  const handleProjectClick = useCallback((project: string) => {
+    console.log(`Selecting project: ${project}`);
+    onSelectProject(project);
     
-    if (project) {
-      const timeout = setTimeout(() => {
-        setHoveredProject(project);
-      }, 100);
-      setHoverTimeout(timeout);
-    } else {
-      const timeout = setTimeout(() => {
-        setHoveredProject(null);
-      }, 300);
-      setHoverTimeout(timeout);
+    // Ensure project folder exists and open it
+    const projectNode = files.find(f => f.name === project && f.type === "folder");
+    if (projectNode && !openFolders.has(projectNode.id)) {
+      toggleFolder(projectNode.id);
     }
-  }, [hoverTimeout]);
+  }, [files, onSelectProject, openFolders, toggleFolder]);
 
   const renderPanel = () => {
     switch (panel) {
       case "explorer":
+        const projectNode = getCurrentProjectNode();
+        const projectFilesArray = projectNode ? [projectNode] : [];
+        
         return (
           <div className="flex flex-col h-full">
-            <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-bold text-gray-800 text-sm uppercase tracking-wider">Projects</h2>
-                <button
-                  onClick={() => setShowNewProjectInput(true)}
-                  className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
-                  title="New Project"
-                >
-                  <IconFolderPlus size={16} />
-                </button>
-              </div>
-              
-              {showNewProjectInput && (
-                <div className="mb-3 relative">
-                  <input
-                    autoFocus
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCreateNewProject();
-                      if (e.key === "Escape") {
-                        setShowNewProjectInput(false);
-                        setNewProjectName("");
-                      }
-                    }}
-                    className="w-full text-sm px-3 py-2 pl-9 rounded-lg border border-blue-300 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Type project name..."
-                    spellCheck="false"
-                  />
-                  <IconFolder size={14} className="absolute left-3 top-2.5 text-gray-400" />
-                  <button
-                    onClick={() => {
-                      setShowNewProjectInput(false);
-                      setNewProjectName("");
-                    }}
-                    className="absolute right-2 top-2.5 p-0.5 rounded hover:bg-gray-200"
-                  >
-                    <IconX size={14} className="text-gray-400" />
-                  </button>
-                </div>
-              )}
+            {/* Projects Header */}
+           
 
-              <div className="space-y-1">
-                {projects.map((project) => {
-                  const projectNode = files.find(f => f.name === project && f.type === "folder");
-                  const isCurrent = currentProject === project;
-                  const isHovered = hoveredProject === project;
-                  const showIcons = isCurrent || isHovered;
-
-                  return (
-                    <div
-                      key={project}
-                      className={`group relative flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
-                        isCurrent
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "hover:bg-blue-50 text-gray-700"
-                      }`}
-                      onMouseEnter={() => handleProjectHover(project)}
-                      onMouseLeave={() => handleProjectHover(null)}
-                    >
-                      <div 
-                        className="flex items-center gap-3 flex-1 cursor-pointer min-w-0"
-                        onClick={() => onSelectProject(project)}
-                      >
-                        <IconFolder size={18} className={`flex-shrink-0 ${isCurrent ? "text-white" : "text-blue-500"}`} />
-                        <span className="font-medium truncate">{project}</span>
-                      </div>
-                      
-                      {/* Create icons - Always visible when project is selected/hovered */}
-                      <div 
-                        className={`flex items-center gap-1 ml-2 transition-all duration-200 ${
-                          showIcons ? "opacity-100" : "opacity-0"
-                        }`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          className={`p-1.5 rounded-md transition-colors ${
-                            isCurrent
-                              ? "bg-white/20 hover:bg-white/30 text-white"
-                              : "bg-blue-100 hover:bg-blue-200 text-blue-600"
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (projectNode) {
-                              setSelectedFolderId(projectNode.id);
-                              setCreating("file");
-                              setTempName("");
-                              if (!openFolders.has(projectNode.id)) toggleFolder(projectNode.id);
-                              if (!isCurrent) onSelectProject(project);
-                            } else {
-                              // Create project folder if it doesn't exist
-                              const newProjectNode: ExplorerNode = {
-                                id: crypto.randomUUID(),
-                                name: project,
-                                type: "folder",
-                                path: project,
-                                children: [],
-                              };
-                              setFiles(prev => [...prev, newProjectNode]);
-                              setSelectedFolderId(newProjectNode.id);
-                              setCreating("file");
-                              setTempName("");
-                              if (!isCurrent) onSelectProject(project);
-                            }
-                          }}
-                          title="New File"
-                        >
-                          <IconFilePlus size={14} />
-                        </button>
-                        <button
-                          className={`p-1.5 rounded-md transition-colors ${
-                            isCurrent
-                              ? "bg-white/20 hover:bg-white/30 text-white"
-                              : "bg-blue-100 hover:bg-blue-200 text-blue-600"
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (projectNode) {
-                              setSelectedFolderId(projectNode.id);
-                              setCreating("folder");
-                              setTempName("");
-                              if (!openFolders.has(projectNode.id)) toggleFolder(projectNode.id);
-                              if (!isCurrent) onSelectProject(project);
-                            } else {
-                              const newProjectNode: ExplorerNode = {
-                                id: crypto.randomUUID(),
-                                name: project,
-                                type: "folder",
-                                path: project,
-                                children: [],
-                              };
-                              setFiles(prev => [...prev, newProjectNode]);
-                              setSelectedFolderId(newProjectNode.id);
-                              setCreating("folder");
-                              setTempName("");
-                              if (!isCurrent) onSelectProject(project);
-                            }
-                          }}
-                          title="New Folder"
-                        >
-                          <IconFolderPlus size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-                
-                {projects.length === 0 && !showNewProjectInput && (
-                  <div className="text-center py-6">
-                    <IconFolder size={32} className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500 text-sm">No projects yet</p>
-                    <p className="text-gray-400 text-xs mt-1">Create your first project</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-auto p-2">
+            {/* File Explorer */}
+            <div className="flex-1 overflow-auto p-1">
               {currentProject ? (
                 <ExplorerPanel
                   currentProject={currentProject}
                   theme={theme}
-                  files={getCurrentProjectFiles()}
+                  files={projectFilesArray}
                   selectedFolderId={selectedFolderId}
                   creating={creating}
                   tempName={tempName}
@@ -368,6 +212,7 @@ export function Sidebar({
                   onFileSelect={onFileSelect}
                   onFolderToggle={toggleFolder}
                   onStartCreate={(type, folderId) => {
+                    console.log("Start create:", type, "in folder:", folderId);
                     setSelectedFolderId(folderId);
                     setCreating(type);
                     setTempName("");
@@ -375,12 +220,12 @@ export function Sidebar({
                   onCreateNode={handleCreateNode}
                   onCancelCreate={handleCancelCreate}
                   onTempNameChange={setTempName}
-                  showProjectHeader={false}
+                  showProjectHeader={true}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4">
-                  <IconFolder size={40} className="text-gray-300 mb-3" />
-                  <p className="text-center">Select a project to view files</p>
+                  <IconFolder size={32} className="text-gray-300 mb-3" />
+                  <p className="text-sm">Select a project</p>
                 </div>
               )}
             </div>
@@ -389,7 +234,7 @@ export function Sidebar({
       case "search":
         return (
           <SearchPanel
-            nodes={files} // Pass unfiltered files for search
+            nodes={files}
             theme={theme}
             onFileSelect={onFileSelect}
             onFolderToggle={toggleFolder}
@@ -405,75 +250,77 @@ export function Sidebar({
 
   return (
     <div className="flex h-screen">
-      <div className="w-14 flex flex-col items-center bg-gradient-to-b from-white to-blue-50 border-r border-gray-200">
+      {/* Left Icon Bar */}
+      <div className="w-12 flex flex-col items-center bg-gray-50 border-r border-gray-200">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="h-12 w-full flex items-center justify-center hover:bg-blue-100 transition-colors border-b border-gray-200"
+          className="h-10 w-full flex items-center justify-center hover:bg-gray-200 border-b border-gray-200"
           title={isOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           {isOpen ? (
-            <IconLayoutSidebarLeftCollapse size={20} className="text-gray-600" />
+            <IconLayoutSidebarLeftCollapse size={18} className="text-gray-600" />
           ) : (
-            <IconLayoutSidebarLeftExpand size={20} className="text-gray-600" />
+            <IconLayoutSidebarLeftExpand size={18} className="text-gray-600" />
           )}
         </button>
 
-        <div className="flex-1 flex flex-col items-center pt-4 space-y-2">
+        <div className="flex-1 flex flex-col items-center pt-4 space-y-1">
           <SidebarIcon
             active={panel === "explorer"}
             onClick={() => handlePanelClick("explorer")}
             tooltip="Explorer"
-            className={`${panel === "explorer" ? "bg-blue-100 text-blue-600 border-blue-200" : "hover:bg-gray-100 text-gray-600"}`}
+            className={`${panel === "explorer" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200 text-gray-600"}`}
           >
-            <IconFolder size={20} />
+            <IconFolder size={18} />
           </SidebarIcon>
 
           <SidebarIcon
             active={panel === "search"}
             onClick={() => handlePanelClick("search")}
             tooltip="Search"
-            className={`${panel === "search" ? "bg-blue-100 text-blue-600 border-blue-200" : "hover:bg-gray-100 text-gray-600"}`}
+            className={`${panel === "search" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200 text-gray-600"}`}
           >
-            <IconSearch size={20} />
+            <IconSearch size={18} />
           </SidebarIcon>
 
           <SidebarIcon
             active={panel === "extensions"}
             onClick={() => handlePanelClick("extensions")}
             tooltip="Extensions"
-            className={`${panel === "extensions" ? "bg-blue-100 text-blue-600 border-blue-200" : "hover:bg-gray-100 text-gray-600"}`}
+            className={`${panel === "extensions" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200 text-gray-600"}`}
           >
-            <IconPlug size={20} />
+            <IconPlug size={18} />
           </SidebarIcon>
         </div>
 
-        <div className="mt-auto mb-4">
+        <div className="mt-auto mb-3">
           <SidebarIcon
             onClick={handlePostmanClick}
             tooltip="API Testing"
-            className="bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-md"
+            className="bg-blue-600 text-white hover:bg-blue-700"
           >
-            <IconSend size={20} />
+            <IconSend size={18} />
           </SidebarIcon>
         </div>
       </div>
 
+      {/* Main Sidebar */}
       <div
-        className={`transition-all duration-300 overflow-hidden flex flex-col shadow-lg ${
-          isOpen ? "w-72" : "w-0"
+        className={`transition-all duration-200 overflow-hidden flex flex-col ${
+          isOpen ? "w-64" : "w-0"
         } bg-white border-r border-gray-200`}
       >
         {isOpen && (
           <>
-            <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
-              <h2 className="font-bold text-gray-800 text-sm uppercase tracking-wider">
-                {panel === "explorer" && "EXPLORER"}
-                {panel === "search" && "SEARCH"}
-                {panel === "extensions" && "EXTENSIONS"}
-              </h2>
+            <div className="px-3 py-2 border-b border-gray-200">
+              <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                {panel === "explorer" && "Explorer"}
+                {panel === "search" && "Search"}
+                {panel === "extensions" && "Extensions"}
+              </div>
             </div>
             
-            <div className="flex-1 overflow-hidden bg-white">
+            <div className="flex-1 overflow-hidden">
               {renderPanel()}
             </div>
           </>

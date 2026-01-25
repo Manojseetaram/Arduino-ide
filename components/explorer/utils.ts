@@ -106,7 +106,26 @@ export function getFileExtension(name: string): string {
   const lastDot = name.lastIndexOf('.');
   return lastDot === -1 ? '' : name.substring(lastDot).toLowerCase();
 }
+// components/explorer/utils.ts - Update the isEspIdfFile function
 
+/* ========= ESP-IDF SPECIFIC UTILITIES ========= */
+export function isEspIdfFile(name: string): boolean {
+  const espIdfExtensions = ['.cmake', '.mk', '.make', '.ld', '.s', '.asm', '.inc'];
+  const espIdfSpecialFiles = [
+    'CMakeLists.txt', 
+    'Makefile', 
+    'component.mk',
+    'sdkconfig',
+    'platformio.ini',
+    '.gitignore',
+    '.gitmodules',
+    'Kconfig',
+    'Kconfig.projbuild'
+  ];
+  
+  const ext = getFileExtension(name);
+  return espIdfExtensions.includes(ext) || espIdfSpecialFiles.includes(name);
+}
 /* ========= SEARCH UTILITIES ========= */
 export function searchFiles(
   nodes: ExplorerNode[],
@@ -135,46 +154,52 @@ export function searchFiles(
   return results.sort((a, b) => a.matches.score - b.matches.score);
 }
 
+// In utils.ts, update the insertNode function:
+
 /* ========= NODE OPERATIONS ========= */
 export function insertNode(
   nodes: ExplorerNode[],
   folderId: string | null,
   newNode: ExplorerNode
 ): ExplorerNode[] {
-  if (!folderId) return [...nodes, newNode];
+  if (!folderId) {
+    // Insert at root level
+    return [...nodes, newNode];
+  }
 
-  return nodes.map((node) => {
-    if (node.type === "folder") {
-      if (node.id === folderId) {
+  const insertRecursive = (nodeList: ExplorerNode[]): ExplorerNode[] => {
+    return nodeList.map(node => {
+      if (node.id === folderId && node.type === "folder") {
+        // Found the target folder
         return {
           ...node,
-          children: [...(node.children ?? []), newNode],
+          children: [...(node.children || []), newNode]
         };
       }
-      return {
-        ...node,
-        children: insertNode(node.children ?? [], folderId, newNode),
-      };
-    }
-    return node;
-  });
-}
+      
+      if (node.type === "folder" && node.children) {
+        // Search in children
+        return {
+          ...node,
+          children: insertRecursive(node.children)
+        };
+      }
+      
+      return node;
+    });
+  };
 
-/* ========= ESP-IDF SPECIFIC UTILITIES ========= */
-export function isEspIdfFile(name: string): boolean {
-  const espIdfExtensions = ['.cmake', '.mk', '.make', '.ld', '.s', '.asm', '.inc'];
-  const espIdfSpecialFiles = [
-    'CMakeLists.txt', 
-    'Makefile', 
-    'component.mk',
-    'sdkconfig',
-    'platformio.ini',
-    '.gitignore',
-    '.gitmodules'
-  ];
-  
-  const ext = getFileExtension(name);
-  return espIdfExtensions.includes(ext) || espIdfSpecialFiles.includes(name);
+  return insertRecursive(nodes);
+}
+// Add debug function to utils.ts
+export function debugFileTree(nodes: ExplorerNode[], depth: number = 0) {
+  nodes.forEach(node => {
+    const indent = '  '.repeat(depth);
+    console.log(`${indent}${node.type === 'folder' ? '📁' : '📄'} ${node.name} (id: ${node.id})`);
+    if (node.type === 'folder' && node.children) {
+      debugFileTree(node.children, depth + 1);
+    }
+  });
 }
 
 export function sortExplorerNodes(nodes: ExplorerNode[]): ExplorerNode[] {

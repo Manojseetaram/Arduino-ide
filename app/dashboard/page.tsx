@@ -28,10 +28,23 @@ export default function DashboardPage() {
   const addProject = async (name: string) => {
     try {
       const projectPath: string = await invoke("create_project", { name });
-      const files: ExplorerNode[] = await invoke("list_project_files", { projectPath });
+      const children: ExplorerNode[] = await invoke("list_project_files", { projectPath });
+
+const rootNode: ExplorerNode = {
+  id: name,
+  name,
+  type: "folder",
+  path: projectPath,
+  children,
+};
+
+setProjectFiles(prev => ({
+  ...prev,
+  [name]: [rootNode],
+}));
 
       setProjects(prev => [...prev, { name, path: projectPath }]);
-      setProjectFiles(prev => ({ ...prev, [name]: files }));
+     
       setEditorTabs(prev => ({ ...prev, [name]: [] }));
       setActiveTabId(prev => ({ ...prev, [name]: null }));
       setShowTerminal(prev => ({ ...prev, [name]: false }));

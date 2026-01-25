@@ -1,8 +1,8 @@
 "use client";
 
 import { ExplorerNode } from "./types";
-import { FileIcon, sortExplorerNodes } from "./utils";
-import { IconFolder, IconFilePlus, IconFolderPlus, IconChevronRight, IconChevronDown } from "@tabler/icons-react";
+import { FileIcon, sortExplorerNodes, isEspIdfFile } from "./utils";
+import { IconFolder, IconFilePlus, IconFolderPlus, IconChevronRight, IconSettings, IconFile } from "@tabler/icons-react";
 import { useState } from "react";
 
 interface ExplorerTreeProps {
@@ -44,7 +44,7 @@ export function ExplorerTree({
   const sortedNodes = sortExplorerNodes(nodes);
 
   return (
-    <div className="space-y-0.5 py-2">
+    <div className="space-y-px">
       {sortedNodes.map((node) =>
         node.type === "folder" ? (
           <FolderItem
@@ -77,7 +77,7 @@ export function ExplorerTree({
       )}
       
       {creating && selectedFolderId === parentId && (
-        <div className="pl-2" style={{ paddingLeft: `${depth * 16 + 32}px` }}>
+        <div className="pl-2" style={{ paddingLeft: `${depth * 16 + 24}px` }}>
           <input
             autoFocus
             value={tempName}
@@ -92,8 +92,8 @@ export function ExplorerTree({
                 else onCancelCreate();
               }, 100);
             }}
-            className="w-full text-sm px-3 py-1.5 rounded border border-blue-300 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            placeholder={`New ${creating} name...`}
+            className="w-full text-xs px-2 py-1 rounded border border-blue-300 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            placeholder={`New ${creating}...`}
           />
         </div>
       )}
@@ -139,53 +139,54 @@ function FolderItem({
   return (
     <div>
       <div
-        className={`group flex items-center gap-2 text-sm cursor-pointer px-3 py-1.5 rounded mx-2 transition-colors ${
+        className={`group flex items-center text-sm cursor-pointer px-1 py-1 hover:bg-gray-100 ${
           selectedFolderId === folder.id 
-            ? "bg-blue-100 text-blue-700 border border-blue-200" 
-            : "hover:bg-blue-50 text-gray-700"
+            ? "bg-blue-50" 
+            : ""
         }`}
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
+          console.log(`Folder clicked: ${folder.name}`);
           onToggle(folder.id);
           onSelect(folder.id);
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
-        <div className={`transition-transform ${isOpen ? "rotate-90" : ""}`}>
-          <IconChevronRight size={14} className="text-blue-500" />
+        <div className={`transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`}>
+          <IconChevronRight size={14} className="text-gray-500 mr-1" />
         </div>
-        <IconFolder size={16} className="text-blue-500" />
-        <span className="flex-1 font-medium truncate">{folder.name}</span>
+        <IconFolder size={16} className="text-blue-500 mr-2 flex-shrink-0" />
+        <span className="text-gray-700 truncate flex-1">{folder.name}</span>
         
-        {(isHovered || selectedFolderId === folder.id) && (
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartCreate("file", folder.id);
-              }}
-              title="New File"
-            >
-              <IconFilePlus size={12} />
-            </button>
-            <button
-              className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartCreate("folder", folder.id);
-              }}
-              title="New Folder"
-            >
-              <IconFolderPlus size={12} />
-            </button>
-          </div>
-        )}
+        {/* Create buttons - show on hover */}
+        <div className={`flex gap-1 ml-2 ${isHovered ? "opacity-100" : "opacity-0"} transition-opacity`} onClick={(e) => e.stopPropagation()}>
+          <button
+            className="p-0.5 rounded hover:bg-gray-200 text-gray-600"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartCreate("file", folder.id);
+            }}
+            title="New File"
+          >
+            <IconFilePlus size={12} />
+          </button>
+          <button
+            className="p-0.5 rounded hover:bg-gray-200 text-gray-600"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartCreate("folder", folder.id);
+            }}
+            title="New Folder"
+          >
+            <IconFolderPlus size={12} />
+          </button>
+        </div>
       </div>
 
       {creating && selectedFolderId === folder.id && (
-        <div className="pl-2" style={{ paddingLeft: `${(depth + 1) * 16 + 32}px` }}>
+        <div className="pl-2" style={{ paddingLeft: `${(depth + 1) * 12 + 32}px` }}>
           <input
             autoFocus
             value={tempName}
@@ -200,8 +201,8 @@ function FolderItem({
                 else onCancelCreate();
               }, 100);
             }}
-            className="w-full text-sm px-3 py-1.5 rounded border border-blue-300 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            placeholder={`New ${creating} name...`}
+            className="w-full text-xs px-2 py-1 rounded border border-blue-300 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            placeholder={`New ${creating}...`}
           />
         </div>
       )}
@@ -240,20 +241,38 @@ function FileItem({
   isActive: boolean;
   depth: number;
 }) {
+  const isEspIdf = isEspIdfFile(file.name);
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-3 text-sm px-3 py-1.5 rounded mx-2 transition-all cursor-pointer ${
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`group flex items-center text-sm px-1 py-1 cursor-pointer ${
         isActive
-          ? "bg-blue-600 text-white shadow-sm"
-          : "hover:bg-blue-50 text-gray-700"
+          ? "bg-blue-100 text-blue-700"
+          : "hover:bg-gray-100 text-gray-700"
       }`}
-      style={{ paddingLeft: `${depth * 16 + 32}px` }}
+      style={{ paddingLeft: `${depth * 12 + 32}px` }}
     >
-      <div className={`${isActive ? "text-white" : "text-blue-500"}`}>
-        <FileIcon name={file.name} />
+      <div className="mr-2 flex-shrink-0">
+        {isEspIdf ? (
+          <IconSettings size={16} className="text-yellow-600" />
+        ) : (
+          <FileIcon name={file.name} />
+        )}
       </div>
-      <span className="flex-1 truncate font-medium">{file.name}</span>
+      <span className="truncate flex-1">{file.name}</span>
+      {isEspIdf && (
+        <span className={`text-xs px-1.5 py-0.5 rounded ml-2 ${
+          isActive 
+            ? "bg-blue-200 text-blue-800" 
+            : "bg-yellow-100 text-yellow-700"
+        }`}>
+          IDF
+        </span>
+      )}
     </div>
   );
 }
