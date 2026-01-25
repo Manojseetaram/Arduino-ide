@@ -11,14 +11,16 @@ pub struct Project {
 }
 
 // Helper: get the JSON file path for recent projects
-fn get_recent_file_path() -> PathBuf {
+#[command]
+pub fn get_recent_file_path() -> PathBuf {
     let mut dir = tauri::api::path::app_data_dir(&tauri::Config::default()).unwrap();
     dir.push("recent_projects.json");
     dir
 }
 
 // Helper: read recent projects
-fn read_recent_projects() -> Vec<Project> {
+#[command]
+pub fn read_recent_projects() -> Vec<Project> {
     let path = get_recent_file_path();
     if path.exists() {
         let data = fs::read_to_string(&path).unwrap_or_default();
@@ -27,9 +29,9 @@ fn read_recent_projects() -> Vec<Project> {
         vec![]
     }
 }
-
+#[command]
 // Helper: write recent projects
-fn write_recent_projects(projects: Vec<Project>) -> bool {
+pub fn write_recent_projects(projects: Vec<Project>) -> bool {
     let path = get_recent_file_path();
     if let Ok(json) = serde_json::to_string_pretty(&projects) {
         if let Err(e) = fs::write(&path, json) {

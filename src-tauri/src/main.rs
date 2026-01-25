@@ -14,6 +14,9 @@ fn main() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::project::create_project,
+            commands::project::write_recent_projects,
+            commands::project::get_recent_file_path,
+            commands::project::read_recent_projects,
             commands::build::build_project,
             commands::artifacts::get_build_artifacts,
             commands::upload::upload_bin,

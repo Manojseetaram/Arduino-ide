@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { MonacoEditor } from "@/components/monacoeditor";
 import { CreateProjectModal } from "@/components/create-project-modal";
 import { ExplorerNode, EditorTab } from "@/components/explorer/types";
 import { PostmanEditor } from "@/components/explorer/postman-editor";
 import { invoke } from "@tauri-apps/api/tauri";
-import { IconPlus, IconFolderPlus, IconSettings, IconFolder } from "@tabler/icons-react";
+import { IconPlus, IconFolderPlus, IconSettings } from "@tabler/icons-react";
 
 type Project = {
   name: string;
@@ -21,12 +21,25 @@ export default function DashboardPage() {
   const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [theme] = useState<"light" | "dark">("light");
   const [showCreate, setShowCreate] = useState(false);
-  
+
   const [editorTabs, setEditorTabs] = useState<Record<string, EditorTab[]>>({});
   const [activeTabId, setActiveTabId] = useState<Record<string, string | null>>({});
   const [showTerminal, setShowTerminal] = useState<Record<string, boolean>>({});
 
-  // ------------------ ADD PROJECT ------------------
+  // ----------------- Load recent projects on mount -----------------
+  useEffect(() => {
+    const loadRecent = async () => {
+      try {
+        const recents: Project[] = await invoke("read_recent_projects");
+        setRecentProjects(recents);
+      } catch (err) {
+        console.error("Failed to load recent projects:", err);
+      }
+    };
+    loadRecent();
+  }, []);
+
+  // ----------------- Add new project -----------------
   const addProject = async (name: string) => {
     try {
       const projectPath: string = await invoke("create_project", { name });
@@ -40,30 +53,62 @@ export default function DashboardPage() {
         children,
       };
 
-      setProjectFiles(prev => ({
-        ...prev,
-        [name]: [rootNode],
-      }));
-
+      setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
       setProjects(prev => [...prev, { name, path: projectPath }]);
+      setRecentProjects(prev => {
+        const updated = [{ name, path: projectPath }, ...prev.filter(p => p.name !== name)];
+        return updated.slice(0, 5); // keep top 5
+      });
+
       setEditorTabs(prev => ({ ...prev, [name]: [] }));
       setActiveTabId(prev => ({ ...prev, [name]: null }));
       setShowTerminal(prev => ({ ...prev, [name]: false }));
       setCurrentProject(name);
       setShowCreate(false);
 
-      // Update recent projects (top 5, remove duplicates)
-      setRecentProjects(prev => {
-        const filtered = prev.filter(p => p.name !== name);
-        return [{ name, path: projectPath }, ...filtered].slice(0, 5);
-      });
-
+      // Save recent project in Rust side
+      await invoke("write_recent_projects", { recentProjects: recentProjects.slice(0, 4).concat({ name, path: projectPath }) });
     } catch (err) {
       console.error(err);
     }
   };
 
-  // ------------------ POSTMAN TAB ------------------
+  // ----------------- Select project (recent or normal) -----------------
+  const handleSelectProject = async (name: string, path: string) => {
+    setCurrentProject(name);
+
+    // Fetch files if not already loaded
+    if (!projectFiles[name]) {
+      try {
+        const children: ExplorerNode[] = await invoke("list_project_files", { projectPath: path });
+        const rootNode: ExplorerNode = {
+          id: name,
+          name,
+          type: "folder",
+          path,
+          children,
+        };
+
+        setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
+        setEditorTabs(prev => ({ ...prev, [name]: [] }));
+        setActiveTabId(prev => ({ ...prev, [name]: null }));
+        setShowTerminal(prev => ({ ...prev, [name]: false }));
+      } catch (err) {
+        console.error("Failed to load project files:", err);
+      }
+    }
+
+    // Update recent projects
+    setRecentProjects(prev => {
+      const updated = [{ name, path }, ...prev.filter(p => p.name !== name)];
+      return updated.slice(0, 5);
+    });
+
+    // Persist recent projects to Rust
+    await invoke("write_recent_projects", { recentProjects: recentProjects.slice(0, 4).concat({ name, path }) });
+  };
+
+  // ----------------- Other editor functions -----------------
   const openPostmanTab = useCallback(() => {
     if (!currentProject) return;
     const timestamp = new Date().getTime();
@@ -72,92 +117,85 @@ export default function DashboardPage() {
       name: `Postman ${timestamp}`,
       path: `postman://api-testing-${timestamp}`,
       saved: true,
-      type: "postman"
+      type: "postman",
     };
 
     setEditorTabs(prev => ({
       ...prev,
-      [currentProject]: [...(prev[currentProject] || []), postmanTab]
+      [currentProject]: [...(prev[currentProject] || []), postmanTab],
     }));
     setActiveTabId(prev => ({ ...prev, [currentProject]: postmanTab.id }));
   }, [currentProject]);
 
-  // ------------------ FILE SELECT ------------------
-  const handleFileSelect = useCallback(async (file: ExplorerNode) => {
-    if (!currentProject || file.type === "folder") return;
+  const handleFileSelect = useCallback(
+    async (file: ExplorerNode) => {
+      if (!currentProject || file.type === "folder") return;
 
-    const projectTabs = editorTabs[currentProject] || [];
-    const existingTab = projectTabs.find(tab => tab.path === file.path);
+      const projectTabs = editorTabs[currentProject] || [];
+      const existingTab = projectTabs.find(tab => tab.path === file.path);
 
-    if (existingTab) {
-      setActiveTabId(prev => ({ ...prev, [currentProject]: existingTab.id }));
-      return;
-    }
+      if (existingTab) {
+        setActiveTabId(prev => ({ ...prev, [currentProject]: existingTab.id }));
+        return;
+      }
 
-    const content: string = await invoke("read_file", {
-      path: file.path,
-    });
+      const content: string = await invoke("read_file", { path: file.path });
 
-    const newTab: EditorTab = {
-      id: crypto.randomUUID(),
-      name: file.name,
-      path: file.path,
-      content,
-      saved: true,
-      type: "file",
-    };
+      const newTab: EditorTab = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        path: file.path,
+        content,
+        saved: true,
+        type: "file",
+      };
 
-    setEditorTabs(prev => ({
-      ...prev,
-      [currentProject]: [...(prev[currentProject] || []), newTab],
-    }));
+      setEditorTabs(prev => ({
+        ...prev,
+        [currentProject]: [...(prev[currentProject] || []), newTab],
+      }));
 
-    setActiveTabId(prev => ({
-      ...prev,
-      [currentProject]: newTab.id,
-    }));
-  }, [currentProject, editorTabs]);
+      setActiveTabId(prev => ({ ...prev, [currentProject]: newTab.id }));
+    },
+    [currentProject, editorTabs]
+  );
 
-  // ------------------ TAB HANDLERS ------------------
   const handleTabSelect = useCallback((tabId: string) => {
     if (!currentProject) return;
     setActiveTabId(prev => ({ ...prev, [currentProject]: tabId }));
   }, [currentProject]);
 
-  const handleTabClose = useCallback((tabId: string) => {
-    if (!currentProject) return;
-    const projectTabs = editorTabs[currentProject] || [];
-    const updatedTabs = projectTabs.filter(tab => tab.id !== tabId);
-    
-    setEditorTabs(prev => ({ ...prev, [currentProject]: updatedTabs }));
-    if (activeTabId[currentProject] === tabId) {
-      if (updatedTabs.length > 0) {
-        setActiveTabId(prev => ({ ...prev, [currentProject]: updatedTabs[updatedTabs.length - 1].id }));
-      } else {
-        setActiveTabId(prev => ({ ...prev, [currentProject]: null }));
-      }
-    }
-  }, [currentProject, editorTabs, activeTabId]);
+  const handleTabClose = useCallback(
+    (tabId: string) => {
+      if (!currentProject) return;
+      const projectTabs = editorTabs[currentProject] || [];
+      const updatedTabs = projectTabs.filter(tab => tab.id !== tabId);
 
-  const handleContentChange = useCallback((tabId: string, content: string) => {
-    if (!currentProject) return;
-    setEditorTabs(prev => {
-      const projectTabs = prev[currentProject] || [];
-      return {
-        ...prev,
-        [currentProject]: projectTabs.map(tab => 
-          tab.id === tabId && tab.type !== "postman" ? { ...tab, saved: false } : tab
-        )
-      };
-    });
-  }, [currentProject]);
+      setEditorTabs(prev => ({ ...prev, [currentProject]: updatedTabs }));
+      if (activeTabId[currentProject] === tabId) {
+        setActiveTabId(prev => ({ ...prev, [currentProject]: updatedTabs.length ? updatedTabs[updatedTabs.length - 1].id : null }));
+      }
+    },
+    [currentProject, editorTabs, activeTabId]
+  );
+
+  const handleContentChange = useCallback(
+    (tabId: string, content: string) => {
+      if (!currentProject) return;
+      setEditorTabs(prev => {
+        const projectTabs = prev[currentProject] || [];
+        return {
+          ...prev,
+          [currentProject]: projectTabs.map(tab => (tab.id === tabId && tab.type !== "postman" ? { ...tab, saved: false } : tab)),
+        };
+      });
+    },
+    [currentProject]
+  );
 
   const handleToggleTerminal = useCallback(() => {
     if (!currentProject) return;
-    setShowTerminal(prev => ({
-      ...prev,
-      [currentProject]: !prev[currentProject]
-    }));
+    setShowTerminal(prev => ({ ...prev, [currentProject]: !prev[currentProject] }));
   }, [currentProject]);
 
   const currentTabs = currentProject ? editorTabs[currentProject] || [] : [];
@@ -167,22 +205,23 @@ export default function DashboardPage() {
   const activeTab = currentTabs.find(tab => tab.id === currentActiveTabId);
   const isPostmanTab = activeTab?.type === "postman" || (activeTab?.name?.startsWith("Postman") ?? false);
 
-  // ------------------ RENDER ------------------
+  // ----------------- Render -----------------
   return (
     <div className="flex h-screen w-screen bg-gray-50 overflow-hidden">
       <Sidebar
         projects={projects.map(p => p.name)}
         currentProject={currentProject}
-        onSelectProject={setCurrentProject}
+        onSelectProject={(name) => {
+          const proj = projects.find(p => p.name === name) || recentProjects.find(p => p.name === name);
+          if (proj) handleSelectProject(proj.name, proj.path);
+        }}
         theme={theme}
         files={currentFiles}
         setFiles={(value) => {
           if (!currentProject) return;
-          setProjectFiles((prev) => ({
+          setProjectFiles(prev => ({
             ...prev,
-            [currentProject]: typeof value === "function"
-              ? value(prev[currentProject] ?? [])
-              : value,
+            [currentProject]: typeof value === "function" ? value(prev[currentProject] ?? []) : value,
           }));
         }}
         onFileSelect={handleFileSelect}
@@ -197,14 +236,13 @@ export default function DashboardPage() {
               <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border border-blue-200 text-blue-600 flex items-center justify-center text-4xl mb-6 shadow-lg">
                 <IconFolderPlus size={48} />
               </div>
-              
+
               <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome to Arduino IDE+</h1>
               <p className="text-gray-600 mb-8">
                 A modern IDE for Arduino, C, and C++ development with clean interface and powerful features
               </p>
 
-              {/* Buttons */}
-              <div className="flex gap-4 justify-center mb-8">
+              <div className="flex gap-4 justify-center">
                 <button
                   onClick={() => setShowCreate(true)}
                   className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
@@ -212,55 +250,25 @@ export default function DashboardPage() {
                   <IconPlus size={20} />
                   Create New Project
                 </button>
+
+                <button className="px-6 py-3 bg-white border border-gray-300 text-gray-700 text-lg font-semibold rounded-lg hover:bg-gray-50 transition-all shadow-sm hover:shadow flex items-center gap-2">
+                  <IconSettings size={20} />
+                  Open Existing
+                </button>
               </div>
 
-              {/* Recent Projects */}
-              <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-700 mb-2">Recent Projects</h2>
-                {recentProjects.length > 0 ? (
-                  <ul className="space-y-2">
-                    {recentProjects.map((project) => (
-                      <li key={project.name}>
-                        <button
-                          onClick={() => setCurrentProject(project.name)}
-                          className="w-full text-left px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2"
-                        >
-                          <IconFolder size={20} className="text-blue-600" />
-                          {project.name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500 text-sm">No recent projects</p>
-                )}
-              </div>
-
-              {/* Features */}
-              <div className="mt-4 grid grid-cols-3 gap-6">
-                <div className="text-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                  <div className="w-10 h-10 mx-auto rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
-                    📁
-                  </div>
-                  <h3 className="font-semibold text-gray-800">File Management</h3>
-                  <p className="text-sm text-gray-600 mt-1">Clean file explorer</p>
-                </div>
-                
-                <div className="text-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                  <div className="w-10 h-10 mx-auto rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-3">
-                    ⚡
-                  </div>
-                  <h3 className="font-semibold text-gray-800">Fast Compilation</h3>
-                  <p className="text-sm text-gray-600 mt-1">Quick build & upload</p>
-                </div>
-                
-                <div className="text-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                  <div className="w-10 h-10 mx-auto rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-3">
-                    🔧
-                  </div>
-                  <h3 className="font-semibold text-gray-800">API Testing</h3>
-                  <p className="text-sm text-gray-600 mt-1">Built-in Postman</p>
-                </div>
+              {/* ---------- Recent Projects ---------- */}
+              <div className="mt-12 text-left">
+                <h2 className="text-lg font-semibold mb-2">Recent Projects</h2>
+                {recentProjects.slice(0, 5).map(p => (
+                  <button
+                    key={p.name}
+                    className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
+                    onClick={() => handleSelectProject(p.name, p.path)}
+                  >
+                    {p.name}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -289,12 +297,7 @@ export default function DashboardPage() {
           />
         )}
 
-        {showCreate && (
-          <CreateProjectModal
-            onClose={() => setShowCreate(false)}
-            onCreate={addProject}
-          />
-        )}
+        {showCreate && <CreateProjectModal onClose={() => setShowCreate(false)} onCreate={addProject} />}
       </div>
     </div>
   );
