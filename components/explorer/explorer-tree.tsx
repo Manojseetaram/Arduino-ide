@@ -1,7 +1,8 @@
-// components/explorer-tree.tsx
+"use client";
+
 import { ExplorerNode } from "./types";
 import { FileIcon, sortExplorerNodes } from "./utils";
-import { IconFolder, IconFilePlus, IconFolderPlus } from "@tabler/icons-react";
+import { IconFolder, IconFilePlus, IconFolderPlus, IconChevronRight, IconChevronDown } from "@tabler/icons-react";
 import { useState } from "react";
 
 interface ExplorerTreeProps {
@@ -40,17 +41,10 @@ export function ExplorerTree({
   onTempNameChange,
 }: ExplorerTreeProps) {
   
-  // Sort nodes: folders first, then files alphabetically
   const sortedNodes = sortExplorerNodes(nodes);
-  
-  // DEBUG: Log nodes to see what's coming in
-  if (nodes.length > 0 && depth === 0) {
-    console.log("ExplorerTree - Root nodes:", nodes);
-    console.log("Sorted nodes:", sortedNodes);
-  }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5 py-2">
       {sortedNodes.map((node) =>
         node.type === "folder" ? (
           <FolderItem
@@ -82,7 +76,6 @@ export function ExplorerTree({
         )
       )}
       
-      {/* Create input for this folder level */}
       {creating && selectedFolderId === parentId && (
         <div className="pl-2" style={{ paddingLeft: `${depth * 16 + 32}px` }}>
           <input
@@ -99,11 +92,7 @@ export function ExplorerTree({
                 else onCancelCreate();
               }, 100);
             }}
-            className={`w-full text-sm px-2 py-1 rounded outline-none ${
-              depth === 1
-                ? "bg-gray-800 border border-blue-500 text-gray-200"
-                : "bg-gray-700 border border-blue-400 text-gray-200"
-            }`}
+            className="w-full text-sm px-3 py-1.5 rounded border border-blue-300 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             placeholder={`New ${creating} name...`}
           />
         </div>
@@ -146,16 +135,16 @@ function FolderItem({
   onTempNameChange: (name: string) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
-  
-  // DEBUG: Log folder info
-  console.log(`FolderItem: ${folder.name} (${folder.id}), children:`, folder.children?.length || 0);
 
   return (
     <div>
       <div
-        className={`group flex items-center gap-2 text-sm cursor-pointer px-2 py-1 rounded hover:bg-blue-500/20`}
+        className={`group flex items-center gap-2 text-sm cursor-pointer px-3 py-1.5 rounded mx-2 transition-colors ${
+          selectedFolderId === folder.id 
+            ? "bg-blue-100 text-blue-700 border border-blue-200" 
+            : "hover:bg-blue-50 text-gray-700"
+        }`}
         onClick={() => {
-          console.log(`Toggling folder: ${folder.name}`);
           onToggle(folder.id);
           onSelect(folder.id);
         }}
@@ -163,26 +152,26 @@ function FolderItem({
         onMouseLeave={() => setIsHovered(false)}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
-        <div className={`transform transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`}>
-          <IconFolder size={16} />
+        <div className={`transition-transform ${isOpen ? "rotate-90" : ""}`}>
+          <IconChevronRight size={14} className="text-blue-500" />
         </div>
-        <span className="flex-1">{folder.name}</span>
+        <IconFolder size={16} className="text-blue-500" />
+        <span className="flex-1 font-medium truncate">{folder.name}</span>
         
-        {/* Create buttons - show on hover or when folder is selected */}
         {(isHovered || selectedFolderId === folder.id) && (
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
             <button
-              className="p-1 rounded hover:bg-gray-700 text-gray-300 hover:text-blue-400"
+              className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 onStartCreate("file", folder.id);
               }}
-              title="New C File"
+              title="New File"
             >
               <IconFilePlus size={12} />
             </button>
             <button
-              className="p-1 rounded hover:bg-gray-700 text-gray-300 hover:text-blue-400"
+              className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 onStartCreate("folder", folder.id);
@@ -195,7 +184,6 @@ function FolderItem({
         )}
       </div>
 
-      {/* Create input for this folder */}
       {creating && selectedFolderId === folder.id && (
         <div className="pl-2" style={{ paddingLeft: `${(depth + 1) * 16 + 32}px` }}>
           <input
@@ -212,11 +200,7 @@ function FolderItem({
                 else onCancelCreate();
               }, 100);
             }}
-            className={`w-full text-sm px-2 py-1 rounded outline-none ${
-              depth === 1
-                ? "bg-gray-800 border border-blue-500 text-gray-200"
-                : "bg-gray-700 border border-blue-400 text-gray-200"
-            }`}
+            className="w-full text-sm px-3 py-1.5 rounded border border-blue-300 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             placeholder={`New ${creating} name...`}
           />
         </div>
@@ -256,20 +240,20 @@ function FileItem({
   isActive: boolean;
   depth: number;
 }) {
-  console.log(`FileItem: ${file.name} at depth ${depth}`);
-  
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-2 text-sm px-2 py-1 rounded cursor-pointer ${
+      className={`flex items-center gap-3 text-sm px-3 py-1.5 rounded mx-2 transition-all cursor-pointer ${
         isActive
-          ? "bg-blue-500/30 text-blue-300"
-          : "hover:bg-blue-500/20"
+          ? "bg-blue-600 text-white shadow-sm"
+          : "hover:bg-blue-50 text-gray-700"
       }`}
       style={{ paddingLeft: `${depth * 16 + 32}px` }}
     >
-      <FileIcon name={file.name} />
-      <span className="flex-1 truncate">{file.name}</span>
+      <div className={`${isActive ? "text-white" : "text-blue-500"}`}>
+        <FileIcon name={file.name} />
+      </div>
+      <span className="flex-1 truncate font-medium">{file.name}</span>
     </div>
   );
 }

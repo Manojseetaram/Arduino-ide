@@ -17,6 +17,7 @@ import {
   IconFileTypeCsv,
   IconFileTypeDoc,
   IconFileTypePdf,
+  IconDeviceCctv,
 } from "@tabler/icons-react";
 import React from "react";
 import { ExplorerNode, SearchResult } from "./types";
@@ -31,6 +32,10 @@ const fileIcons: Record<string, React.ReactNode> = {
   '.h': React.createElement(IconBrandCpp, { size: 16 }),
   '.hpp': React.createElement(IconBrandCpp, { size: 16 }),
   '.hxx': React.createElement(IconBrandCpp, { size: 16 }),
+  
+  // Arduino Files
+  '.ino': React.createElement(IconDeviceCctv, { size: 16 }),
+  '.pde': React.createElement(IconDeviceCctv, { size: 16 }),
   
   // ESP-IDF Specific
   '.cmake': React.createElement(IconSettings, { size: 16 }),
@@ -76,6 +81,9 @@ const specialFileIcons: Record<string, React.ReactNode> = {
   'LICENSE': React.createElement(IconFileText, { size: 16 }),
   '.gitignore': React.createElement(IconSettings, { size: 16 }),
   '.gitmodules': React.createElement(IconSettings, { size: 16 }),
+  'platformio.ini': React.createElement(IconSettings, { size: 16 }),
+  'component.mk': React.createElement(IconSettings, { size: 16 }),
+  'sdkconfig': React.createElement(IconSettings, { size: 16 }),
 };
 
 export function FileIcon({ name }: { name: string }) {
@@ -154,8 +162,16 @@ export function insertNode(
 
 /* ========= ESP-IDF SPECIFIC UTILITIES ========= */
 export function isEspIdfFile(name: string): boolean {
-  const espIdfExtensions = ['.c', '.cpp', '.h', '.hpp', '.cmake', '.mk', '.ld', '.s', '.asm'];
-  const espIdfSpecialFiles = ['CMakeLists.txt', 'Makefile', 'component.mk'];
+  const espIdfExtensions = ['.cmake', '.mk', '.make', '.ld', '.s', '.asm', '.inc'];
+  const espIdfSpecialFiles = [
+    'CMakeLists.txt', 
+    'Makefile', 
+    'component.mk',
+    'sdkconfig',
+    'platformio.ini',
+    '.gitignore',
+    '.gitmodules'
+  ];
   
   const ext = getFileExtension(name);
   return espIdfExtensions.includes(ext) || espIdfSpecialFiles.includes(name);
@@ -170,4 +186,25 @@ export function sortExplorerNodes(nodes: ExplorerNode[]): ExplorerNode[] {
     // Then by name
     return a.name.localeCompare(b.name);
   });
+}
+
+/* ========= FILTER ESP-IDF FILES FOR TREE VIEW ========= */
+export function filterEspIdfTree(nodes: ExplorerNode[]): ExplorerNode[] {
+  return nodes
+    .filter(node => {
+      if (node.type === "folder") {
+        return true;
+      }
+      // Hide ESP-IDF configuration files from tree view
+      return !isEspIdfFile(node.name);
+    })
+    .map(node => {
+      if (node.type === "folder" && node.children) {
+        return {
+          ...node,
+          children: filterEspIdfTree(node.children)
+        };
+      }
+      return node;
+    });
 }

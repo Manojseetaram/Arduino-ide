@@ -1,8 +1,7 @@
-// components/explorer/explorer-panel.tsx
 "use client";
 
 import { ExplorerNode } from "./types";
-import { IconFolder, IconChevronRight, IconFolderPlus, IconFilePlus } from "@tabler/icons-react";
+import { IconFolder, IconChevronRight, IconChevronDown, IconFolderPlus, IconFilePlus } from "@tabler/icons-react";
 import { ExplorerTree } from "./explorer-tree";
 
 interface ExplorerPanelProps {
@@ -21,7 +20,7 @@ interface ExplorerPanelProps {
   onCreateNode: () => void;
   onCancelCreate: () => void;
   onTempNameChange: (name: string) => void;
-  showProjectHeader?: boolean; // ADD THIS LINE
+  showProjectHeader?: boolean;
 }
 
 export function ExplorerPanel({
@@ -40,45 +39,38 @@ export function ExplorerPanel({
   onCreateNode,
   onCancelCreate,
   onTempNameChange,
-  showProjectHeader = true, // ADD THIS LINE WITH DEFAULT VALUE
+  showProjectHeader = true,
 }: ExplorerPanelProps) {
-  const dark = theme === "dark";
-  const projectNode = files[0]; // First node is the project folder
+  const projectNode = files[0];
 
-  // If there's no current project or no project node, don't render anything
   if (!currentProject || !projectNode) {
-    return null;
+    return (
+      <div className="p-4 text-center text-gray-500">
+        <IconFolder size={32} className="mx-auto text-gray-300 mb-3" />
+        <p>No project selected</p>
+      </div>
+    );
   }
 
   return (
-    <div className="p-2">
-      {/* Project Header - Only show if showProjectHeader is true */}
+    <div className="p-3">
       {showProjectHeader && (
-        <div className="mb-2">
+        <div className="mb-3">
           <div
-            className={`group flex items-center justify-between px-2 py-1.5 rounded text-sm font-semibold cursor-pointer ${
-              dark 
-                ? "hover:bg-gray-800 text-gray-200" 
-                : "hover:bg-gray-200 text-gray-800"
-            }`}
+            className="group flex items-center justify-between px-3 py-2.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 cursor-pointer"
             onClick={() => onFolderToggle(projectNode.id)}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div className={`transition-transform ${openFolders.has(projectNode.id) ? "rotate-90" : ""}`}>
-                <IconChevronRight size={14} />
+                <IconChevronRight size={16} className="text-blue-500" />
               </div>
-              <IconFolder size={14} />
-              <span>{currentProject}</span>
+              <IconFolder size={18} className="text-blue-600" />
+              <span className="font-semibold text-gray-800">{currentProject}</span>
             </div>
             
-            {/* CREATE BUTTONS - Always visible */}
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
               <button
-                className={`p-1 rounded ${
-                  dark 
-                    ? "hover:bg-gray-700 text-gray-300 hover:text-blue-400" 
-                    : "hover:bg-gray-300 text-gray-600 hover:text-blue-600"
-                }`}
+                className="p-1.5 rounded-md bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 hover:border-blue-300 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStartCreate("file", projectNode.id);
@@ -88,11 +80,7 @@ export function ExplorerPanel({
                 <IconFilePlus size={14} />
               </button>
               <button
-                className={`p-1 rounded ${
-                  dark 
-                    ? "hover:bg-gray-700 text-gray-300 hover:text-blue-400" 
-                    : "hover:bg-gray-300 text-gray-600 hover:text-blue-600"
-                }`}
+                className="p-1.5 rounded-md bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 hover:border-blue-300 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStartCreate("folder", projectNode.id);
@@ -106,9 +94,8 @@ export function ExplorerPanel({
         </div>
       )}
 
-      {/* FILE EXPLORER TREE */}
       {(!currentProject || (projectNode && openFolders.has(projectNode.id))) && (
-        <div className="overflow-y-auto max-h-[calc(100vh-150px)]">
+        <div className="overflow-y-auto rounded-lg border border-gray-200 bg-white">
           <ExplorerTree
             nodes={projectNode?.children || []}
             onFolderSelect={onFolderSelect}

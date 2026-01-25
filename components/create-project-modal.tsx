@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { IconFolderPlus, IconX } from "@tabler/icons-react";
 
 export function CreateProjectModal({
   onClose,
@@ -12,34 +13,80 @@ export function CreateProjectModal({
   const [name, setName] = useState("");
 
   return (
-    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl w-80 text-center">
-        <div className="w-16 h-16 mx-auto rounded-full bg-blue-600 text-white flex items-center justify-center text-2xl mb-4">
-          📁
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center">
+                <IconFolderPlus size={24} />
+              </div>
+              <div>
+                <h2 className="font-bold text-xl text-gray-800">Create Project</h2>
+                <p className="text-gray-600 text-sm">Start a new Arduino/C++ project</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <IconX size={20} className="text-gray-500" />
+            </button>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Project Name
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+              placeholder="my-arduino-project"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && name.trim()) onCreate(name);
+                if (e.key === "Escape") onClose();
+              }}
+            />
+            <p className="text-gray-500 text-xs mt-2">
+              Use lowercase letters, numbers, and hyphens
+            </p>
+          </div>
+
+          <div className="bg-blue-50 rounded-xl p-4 mb-6">
+            <h3 className="font-semibold text-blue-700 text-sm mb-2">Project Structure</h3>
+            <div className="text-sm text-blue-600 space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                <span>src/ - Source files (.ino, .cpp, .c)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                <span>include/ - Header files</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                <span>lib/ - Libraries</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <h2 className="font-semibold mb-4">Create Project</h2>
-
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full p-2 border rounded mb-3 dark:bg-gray-700"
-          placeholder="project name"
-        />
-
-        <div className="flex gap-2">
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2 border rounded"
+            className="flex-1 px-4 py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition-colors"
           >
             Cancel
           </button>
 
           <button
             onClick={() => name && onCreate(name)}
-            className="flex-1 py-2 bg-blue-600 text-white rounded"
+            disabled={!name.trim()}
+            className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
           >
-            Create
+            Create Project
           </button>
         </div>
       </div>
