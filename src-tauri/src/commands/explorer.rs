@@ -7,7 +7,7 @@ pub struct ExplorerNode {
     pub id: String,
     pub name: String,
     pub path: String,
-    pub type_: String,
+    pub node_type: String, // "file" or "folder"
     pub children: Option<Vec<ExplorerNode>>,
 }
 
@@ -17,22 +17,22 @@ pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, Str
         let mut nodes = vec![];
         if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.flatten() {
-                let path_buf = entry.path();
-                let file_name = entry.file_name().to_string_lossy().to_string();
-                if path_buf.is_dir() {
+                let path = entry.path();
+                let name = entry.file_name().to_string_lossy().to_string();
+                if path.is_dir() {
                     nodes.push(ExplorerNode {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        name: file_name.clone(),
-                        path: path_buf.to_string_lossy().to_string(),
-                        type_: "folder".to_string(),
-                        children: Some(read_dir(&path_buf)),
+                        id: path.to_string_lossy().to_string(),
+                        name,
+                        path: path.to_string_lossy().to_string(),
+                        node_type: "folder".into(),
+                        children: Some(read_dir(&path)),
                     });
                 } else {
                     nodes.push(ExplorerNode {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        name: file_name.clone(),
-                        path: path_buf.to_string_lossy().to_string(),
-                        type_: "file".to_string(),
+                        id: path.to_string_lossy().to_string(),
+                        name,
+                        path: path.to_string_lossy().to_string(),
+                        node_type: "file".into(),
                         children: None,
                     });
                 }
@@ -47,4 +47,14 @@ pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, Str
     }
 
     Ok(read_dir(&path))
+}
+#[tauri::command]
+pub fn read_file(path: String) -> Result<String, String> {
+    let p = std::path::Path::new(&path);
+
+    if p.is_dir() {
+        return Err("Cannot open a directory".into());
+    }
+
+    std::fs::read_to_string(p).map_err(|e| e.to_string())
 }

@@ -19,7 +19,9 @@ fn main() {
             commands::upload::upload_bin,
             commands::controllers::select_controllers,
             commands::flash::flash,
-            commands::explorer::list_project_files
+            commands::explorer::list_project_files,
+            commands::explorer::read_file,
+            commands::build::get_project_path
         ])
         .run(tauri::generate_context!())
         .expect("error running tauri app");

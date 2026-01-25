@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { IconX, IconTerminal2, IconCopy, IconTrash } from "@tabler/icons-react";
+import { listen } from "@tauri-apps/api/event";
 
 interface Props {
   onClose: () => void;
@@ -49,6 +50,26 @@ export default function TerminalWrapper({ onClose, theme }: Props) {
   const handleClearTerminal = () => {
     setTerminalOutput([]);
   };
+useEffect(() => {
+  let unlistenLog: (() => void) | undefined;
+  let unlistenFinished: (() => void) | undefined;
+
+  (async () => {
+    unlistenLog = await listen<string>("build-log", (event) => {
+      setTerminalOutput(prev => [...prev, event.payload]);
+    });
+
+    unlistenFinished = await listen<string>("build-finished", (event) => {
+      setTerminalOutput(prev => [...prev, `✔ ${event.payload}`]);
+    });
+  })();
+
+  return () => {
+    if (unlistenLog) unlistenLog();
+    if (unlistenFinished) unlistenFinished();
+  };
+}, []);
+
 
   const handleCopyTerminal = () => {
     const text = terminalOutput.join('\n');

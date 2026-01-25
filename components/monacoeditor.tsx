@@ -5,6 +5,8 @@ import Editor from "@monaco-editor/react";
 import { IconX, IconTerminal2 } from "@tabler/icons-react";
 import { EditorTab } from "./explorer/types";
 import TerminalWrapper from "./terminal-wrapper";
+import { invoke } from "@tauri-apps/api/tauri";
+import { IconPlayerPlay } from "@tabler/icons-react";
 
 interface MonacoEditorProps {
   projectName: string;
@@ -64,6 +66,29 @@ export function MonacoEditor({
     e.stopPropagation();
     onTabClose(tabId);
   };
+useEffect(() => {
+  const handler = async () => {
+    if (!projectName) return;
+
+    try {
+      toggleTerminal(); // open terminal automatically
+
+      // Find the full path of the project
+    const projectPath: string = await invoke("get_project_path", { name: projectName });
+await invoke("build_project", { projectPath });
+
+
+      // Optionally, show "Build Success" toast after completion
+      console.log("Build finished!");
+    } catch (err) {
+      console.error("Build failed", err);
+    }
+  };
+
+  window.addEventListener("compile-project", handler);
+  return () => window.removeEventListener("compile-project", handler);
+}, [projectName]);
+
 
   // Initialize content for new tabs
   useEffect(() => {
@@ -137,8 +162,22 @@ export function MonacoEditor({
             <IconTerminal2 size={16} />
             <span>Terminal</span>
           </button>
+          <button
+  onClick={() => {
+    window.dispatchEvent(new Event("compile-project"));
+  }}
+  className={`flex items-center gap-2 px-3 py-1 rounded text-sm ${
+    theme === "dark"
+      ? "bg-green-600 text-white hover:bg-green-500"
+      : "bg-green-500 text-white hover:bg-green-600"
+  }`}
+>
+  ▶ Compile
+</button>
+
         </div>
-        
+      
+
         {/* File tabs */}
         <div className="flex overflow-x-auto">
           {tabs.map((tab) => (

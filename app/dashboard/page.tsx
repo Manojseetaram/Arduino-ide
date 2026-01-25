@@ -27,8 +27,8 @@ export default function DashboardPage() {
 
   const addProject = async (name: string) => {
     try {
-      const projectPath: string = await invoke("create_project", { name });
-      const children: ExplorerNode[] = await invoke("list_project_files", { projectPath });
+     const projectPath: string = await invoke("create_project", { name });
+const children: ExplorerNode[] = await invoke("list_project_files", { projectPath });
 
 const rootNode: ExplorerNode = {
   id: name,
@@ -73,28 +73,41 @@ setProjectFiles(prev => ({
     setActiveTabId(prev => ({ ...prev, [currentProject]: postmanTab.id }));
   }, [currentProject, editorTabs]);
 
-  const handleFileSelect = useCallback((file: ExplorerNode) => {
-    if (!currentProject || file.type === "folder") return;
-    const projectTabs = editorTabs[currentProject] || [];
-    const existingTab = projectTabs.find(tab => tab.path === file.path);
+const handleFileSelect = useCallback(async (file: ExplorerNode) => {
+  if (!currentProject || file.type === "folder") return;
 
-    if (existingTab) {
-      setActiveTabId(prev => ({ ...prev, [currentProject]: existingTab.id }));
-    } else {
-      const newTab: EditorTab = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        path: file.path,
-        saved: true,
-        type: "file"
-      };
-      setEditorTabs(prev => ({
-        ...prev,
-        [currentProject]: [...(prev[currentProject] || []), newTab]
-      }));
-      setActiveTabId(prev => ({ ...prev, [currentProject]: newTab.id }));
-    }
-  }, [currentProject, editorTabs]);
+  const projectTabs = editorTabs[currentProject] || [];
+  const existingTab = projectTabs.find(tab => tab.path === file.path);
+
+  if (existingTab) {
+    setActiveTabId(prev => ({ ...prev, [currentProject]: existingTab.id }));
+    return;
+  }
+
+  const content: string = await invoke("read_file", {
+    path: file.path,
+  });
+
+  const newTab: EditorTab = {
+    id: crypto.randomUUID(),
+    name: file.name,
+    path: file.path,
+    content,
+    saved: true,
+    type: "file",
+  };
+
+  setEditorTabs(prev => ({
+    ...prev,
+    [currentProject]: [...(prev[currentProject] || []), newTab],
+  }));
+
+  setActiveTabId(prev => ({
+    ...prev,
+    [currentProject]: newTab.id,
+  }));
+}, [currentProject, editorTabs]);
+
 
   const handleTabSelect = useCallback((tabId: string) => {
     if (!currentProject) return;
