@@ -251,10 +251,10 @@ export function Sidebar({
   return (
     <div className="flex h-screen">
       {/* Left Icon Bar */}
-      <div className="w-12 flex flex-col items-center bg-gray-50 border-r border-gray-200">
+      <div className="w-12 flex flex-col items-center bg-gray-50">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="h-10 w-full flex items-center justify-center hover:bg-gray-200 border-b border-gray-200"
+          className="h-10 w-full flex items-center justify-center hover:bg-gray-200"
           title={isOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           {isOpen ? (
@@ -308,11 +308,11 @@ export function Sidebar({
       <div
         className={`transition-all duration-200 overflow-hidden flex flex-col ${
           isOpen ? "w-64" : "w-0"
-        } bg-white border-r border-gray-200`}
+        } bg-white `}
       >
         {isOpen && (
           <>
-            <div className="px-3 py-2 border-b border-gray-200">
+            <div className="px-3 py-2">
               <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 {panel === "explorer" && "Explorer"}
                 {panel === "search" && "Search"}

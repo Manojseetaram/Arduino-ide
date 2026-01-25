@@ -57,7 +57,7 @@ export function ExplorerPanel({
       {showProjectHeader && (
         <div className="mb-3">
           <div
-            className="group flex items-center justify-between px-3 py-2.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 cursor-pointer"
+            className="group flex items-center justify-between px-3 py-2.5 rounded-lg  from-blue-50 to-blue-100  cursor-pointer"
             onClick={() => onFolderToggle(projectNode.id)}
           >
             <div className="flex items-center gap-3">
@@ -70,7 +70,7 @@ export function ExplorerPanel({
             
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
               <button
-                className="p-1.5 rounded-md bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 hover:border-blue-300 transition-colors"
+                className="p-1.5  bg-white hover:bg-blue-50 text-blue-600  transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStartCreate("file", projectNode.id);
@@ -80,7 +80,7 @@ export function ExplorerPanel({
                 <IconFilePlus size={14} />
               </button>
               <button
-                className="p-1.5 rounded-md bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 hover:border-blue-300 transition-colors"
+                className="p-1.5 rounded-md bg-white hover:bg-blue-50 text-blue-600 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStartCreate("folder", projectNode.id);
@@ -95,7 +95,7 @@ export function ExplorerPanel({
       )}
 
       {(!currentProject || (projectNode && openFolders.has(projectNode.id))) && (
-        <div className="overflow-y-auto rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-y-auto   bg-white">
           <ExplorerTree
             nodes={projectNode?.children || []}
             onFolderSelect={onFolderSelect}
