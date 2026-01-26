@@ -14,7 +14,8 @@ import {
   IconX,
   IconPlus,
 } from "@tabler/icons-react";
-
+  // FIXED: handleCreateNode function
+ import { invoke } from "@tauri-apps/api/tauri";
 import { SidebarProps, ExplorerNode } from "@/components/explorer/types";
 import { getFileExtension } from "@/components/explorer/utils";
 import { SearchPanel } from "@/components/explorer/search-panel";
@@ -47,26 +48,28 @@ export function Sidebar({
   const setFiles = externalSetFiles || (() => {});
 
   // Get project node for current project
-  const getCurrentProjectNode = useCallback(() => {
-    if (!currentProject) return null;
-    
-    // Find existing project folder in files
-    const projectNode = files.find(f => f.name === currentProject && f.type === "folder");
-    // return files[0] ?? null;
+const getCurrentProjectNode = useCallback(() => {
+  if (!currentProject) return null;
 
-    if (projectNode) {
-      return projectNode;
-    }
+  let projectNode = files.find(f => f.name === currentProject && f.type === "folder");
 
-    // If not found, create a temporary node (but don't save it yet)
-    return {
+  if (!projectNode) {
+    // If project doesn't exist in files yet, create it
+    projectNode = {
       id: currentProject,
       name: currentProject,
       type: "folder" as const,
-      path: currentProject,
+      path: `/Users/manojseetaramgowda/esp-projects/${currentProject}`,
       children: [],
     };
-  }, [currentProject, files]);
+  }
+
+  // Make sure children exists
+  if (!projectNode.children) projectNode.children = [];
+
+  return projectNode;
+}, [currentProject, files]);
+
 
   const toggleFolder = useCallback((folderId: string) => {
     setOpenFolders(prev => {
@@ -79,85 +82,96 @@ export function Sidebar({
       return next;
     });
   }, []);
+const safeProjects = Array.isArray(projects) ? projects : [];
+console.log("Projects:", safeProjects);
 
-  // FIXED: handleCreateNode function
-  const handleCreateNode = useCallback(() => {
-    if (!tempName.trim() || !creating) {
-      setCreating(null);
-      setTempName("");
-      return;
-    }
 
-    if (!currentProject) return;
 
-    const extension = creating === "file" ? getFileExtension(tempName) : "";
-    const finalName = creating === "file" && !extension ? `${tempName}.cpp` : tempName;
 
-    // Create the new node
+const handleCreateNode = useCallback(async () => {
+  if (!tempName.trim() || !creating || !currentProject) return;
+
+  const finalName =
+    creating === "file" && !tempName.includes(".")
+      ? `${tempName}.cpp`
+      : tempName;
+
+  // ✅ selectedFolderId must be RELATIVE ( "", "src", "src/utils" )
+  const relativeParent =
+    !selectedFolderId || selectedFolderId === ""
+      ? ""
+      : selectedFolderId.replace(`${currentProject}/`, "");
+
+  // ✅ THIS WAS MISSING (MOST IMPORTANT)
+  const relativePath = relativeParent
+    ? `${relativeParent}/${finalName}`
+    : finalName;
+
+  try {
+    await invoke(
+      creating === "folder" ? "create_folder" : "create_file",
+      {
+        projectName: currentProject, // ONLY project name
+        relativePath,                // ONLY inside project
+      }
+    );
+
     const newNode: ExplorerNode = {
-      id: `${Date.now()}-${finalName}`, // Simple ID
+      id: relativePath, // ✅ relative path only
       name: finalName,
       type: creating,
-      path: `${currentProject}/${finalName}`,
       ...(creating === "folder" ? { children: [] } : {}),
+      path: ""
     };
 
-    // Get current project node
-    let projectNode = getCurrentProjectNode();
-    if (!projectNode) return;
+    const insert = (nodes: ExplorerNode[]): ExplorerNode[] =>
+      relativeParent === ""
+        ? [...nodes, newNode]
+        : nodes.map(n =>
+            n.id === relativeParent && n.type === "folder"
+              ? { ...n, children: [...(n.children || []), newNode] }
+              : n.children
+              ? { ...n, children: insert(n.children) }
+              : n
+          );
 
-    // Find where to insert the new node
-    const insertIntoNode = (nodes: ExplorerNode[], targetId: string | null): ExplorerNode[] => {
-      if (!targetId) {
-        // Insert at root (project level)
-        return [...nodes, newNode];
-      }
+    setFiles(insert(files));
+  } catch (e) {
+    console.error(e);
+  }
 
-      return nodes.map(node => {
-        if (node.id === targetId && node.type === "folder") {
-          return {
-            ...node,
-            children: [...(node.children || []), newNode]
-          };
-        }
-        
-        if (node.type === "folder" && node.children) {
-          return {
-            ...node,
-            children: insertIntoNode(node.children, targetId)
-          };
-        }
-        
-        return node;
-      });
-    };
+  setCreating(null);
+  setTempName("");
+}, [tempName, creating, selectedFolderId, currentProject, files]);
 
-    // Update files
-    const updatedFiles = insertIntoNode(files, selectedFolderId);
-    setFiles(updatedFiles);
-
-    // Open the folder if we created a folder
-    if (creating === "folder" && selectedFolderId) {
-      setOpenFolders(prev => new Set(prev).add(selectedFolderId));
-    }
-
-    // Reset creation state
-    setCreating(null);
-    setTempName("");
-  }, [tempName, creating, selectedFolderId, currentProject, files, setFiles, getCurrentProjectNode]);
+ 
+ 
 
   const handleCancelCreate = useCallback(() => {
     setCreating(null);
     setTempName("");
   }, []);
 
-  const handleCreateNewProject = () => {
-    if (newProjectName.trim()) {
-      onSelectProject(newProjectName.trim());
-      setNewProjectName("");
-    }
-    setShowNewProjectInput(false);
-  };
+ const handleCreateNewProject = () => {
+  const name = newProjectName.trim();
+  if (!name) return;
+
+  if (!safeProjects.includes(name)) {
+    const updatedProjects = [...safeProjects, name];
+
+    // IMPORTANT: parent must persist this
+    onSelectProject(name);
+
+    // 🔴 THIS is what prevents write_recent_projects crash
+    window.dispatchEvent(
+      new CustomEvent("projects:update", { detail: updatedProjects })
+    );
+  }
+
+  setNewProjectName("");
+  setShowNewProjectInput(false);
+};
+
 
   const handlePanelClick = useCallback((newPanel: "explorer" | "search" | "extensions") => {
     if (!isOpen) {

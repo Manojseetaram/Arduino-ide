@@ -4,7 +4,7 @@ use std::process::Command;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone , Debug)]
 pub struct Project {
     pub name: String,
     pub path: String,
@@ -30,8 +30,8 @@ pub fn read_recent_projects() -> Vec<Project> {
     }
 }
 #[command]
-// Helper: write recent projects
 pub fn write_recent_projects(projects: Vec<Project>) -> bool {
+    println!("Received projects: {:?}", projects);
     let path = get_recent_file_path();
     if let Ok(json) = serde_json::to_string_pretty(&projects) {
         if let Err(e) = fs::write(&path, json) {
@@ -43,6 +43,8 @@ pub fn write_recent_projects(projects: Vec<Project>) -> bool {
         false
     }
 }
+
+
 
 #[command]
 pub fn create_project(name: String) -> Result<String, String> {

@@ -18,7 +18,7 @@ export type ExplorerNode = {
 // }
 // components/explorer/types.ts
 export interface SidebarProps {
-  projects: string[];
+  projects?: string[]; // 👈 make optional
   currentProject: string | null;
   onSelectProject: (projectName: string) => void;
   theme: "light" | "dark";
@@ -27,6 +27,7 @@ export interface SidebarProps {
   onFileSelect?: (file: ExplorerNode) => void;
   activeFileId?: string | null;
 }
+
 export interface SearchResult {
   node: ExplorerNode;
   matches: { path: string; score: number };

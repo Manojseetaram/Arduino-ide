@@ -1,5 +1,5 @@
 use tauri::command;
-use std::fs;
+use std::fs::{self, File};
 use std::path::PathBuf;
 
 #[derive(serde::Serialize)]
@@ -10,6 +10,7 @@ pub struct ExplorerNode {
     pub node_type: String, // "file" or "folder"
     pub children: Option<Vec<ExplorerNode>>,
 }
+
 
 #[command]
 pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, String> {
@@ -48,7 +49,8 @@ pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, Str
 
     Ok(read_dir(&path))
 }
-#[tauri::command]
+
+#[command]
 pub fn read_file(path: String) -> Result<String, String> {
     let p = std::path::Path::new(&path);
 
@@ -58,3 +60,43 @@ pub fn read_file(path: String) -> Result<String, String> {
 
     std::fs::read_to_string(p).map_err(|e| e.to_string())
 }
+
+#[command]
+pub fn create_folder(project_name: String, relative_path: String) -> Result<String, String> {
+    let home = dirs::home_dir().ok_or("No home dir")?;
+    let base = home.join("esp-projects").join(project_name);
+
+    let folder_path = base.join(relative_path);
+
+    if folder_path.exists() {
+        return Err("Folder already exists".into());
+    }
+
+    std::fs::create_dir_all(&folder_path)
+        .map_err(|e| e.to_string())?;
+
+    Ok(format!("Folder created: {}", folder_path.display()))
+}
+
+
+#[command]
+
+pub fn create_file(project_name: String, relative_path: String) -> Result<String, String> {
+    let home = dirs::home_dir().ok_or("No home dir")?;
+    let base = home.join("esp-projects").join(project_name);
+
+    let file_path = base.join(relative_path);
+
+    if file_path.exists() {
+        return Err("File already exists".into());
+    }
+
+    std::fs::create_dir_all(file_path.parent().unwrap())
+        .map_err(|e| e.to_string())?;
+
+    std::fs::File::create(&file_path)
+        .map_err(|e| e.to_string())?;
+
+    Ok(format!("Created: {}", file_path.display()))
+}
+

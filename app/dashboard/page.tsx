@@ -7,11 +7,17 @@ import { CreateProjectModal } from "@/components/create-project-modal";
 import { ExplorerNode, EditorTab } from "@/components/explorer/types";
 import { PostmanEditor } from "@/components/explorer/postman-editor";
 import { invoke } from "@tauri-apps/api/tauri";
-import { IconPlus, IconFolderPlus, IconSettings } from "@tabler/icons-react";
+import { IconPlus, IconFolderPlus, IconSettings, IconClock, IconFolder } from "@tabler/icons-react";
 
 type Project = {
   name: string;
   path: string;
+};
+
+type EditorTabState = {
+  project_name: string;
+  tabs: EditorTab[];
+  active_tab_id: string | null;
 };
 
 export default function DashboardPage() {
@@ -26,7 +32,7 @@ export default function DashboardPage() {
   const [activeTabId, setActiveTabId] = useState<Record<string, string | null>>({});
   const [showTerminal, setShowTerminal] = useState<Record<string, boolean>>({});
 
-  // ----------------- Load recent projects on mount -----------------
+  // ---------------- Load recent projects ----------------
   useEffect(() => {
     const loadRecent = async () => {
       try {
@@ -39,7 +45,62 @@ export default function DashboardPage() {
     loadRecent();
   }, []);
 
-  // ----------------- Add new project -----------------
+  // ---------------- Load editor state ----------------
+  useEffect(() => {
+    const loadEditorState = async () => {
+      try {
+        const savedState: EditorTabState[] = await invoke("load_editor_state");
+        savedState.forEach(s => {
+          setEditorTabs(prev => ({ ...prev, [s.project_name]: s.tabs }));
+          setActiveTabId(prev => ({ ...prev, [s.project_name]: s.active_tab_id || null }));
+        });
+      } catch (err) {
+        console.error("Failed to load editor state:", err);
+      }
+    };
+    loadEditorState();
+  }, []);
+
+ useEffect(() => {
+  const loadProjects = async () => {
+    try {
+      const allProjects: Project[] = await invoke("read_recent_projects");
+      setProjects(allProjects);
+      setRecentProjects(allProjects.slice(0, 5));
+
+      // Load files for each project
+      const filesState: Record<string, ExplorerNode[]> = {};
+
+      for (const proj of allProjects) {
+        try {
+          const children: ExplorerNode[] = await invoke("list_project_files", { projectPath: proj.path });
+
+          filesState[proj.name] = [
+            {
+              id: proj.name,
+              name: proj.name,
+              type: "folder",
+              path: proj.path,
+              children,
+            },
+          ];
+        } catch (err) {
+          console.error(`Failed to load files for project ${proj.name}:`, err);
+        }
+      }
+
+      setProjectFiles(filesState);
+
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+    }
+  };
+
+  loadProjects();
+}, []);
+
+
+  // ---------------- Add new project ----------------
   const addProject = async (name: string) => {
     try {
       const projectPath: string = await invoke("create_project", { name });
@@ -55,29 +116,27 @@ export default function DashboardPage() {
 
       setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
       setProjects(prev => [...prev, { name, path: projectPath }]);
-      setRecentProjects(prev => {
-        const updated = [{ name, path: projectPath }, ...prev.filter(p => p.name !== name)];
-        return updated.slice(0, 5); // keep top 5
-      });
+
+      const updatedRecent = [{ name, path: projectPath }, ...recentProjects.filter(p => p.name !== name)].slice(0, 5);
+      setRecentProjects(updatedRecent);
+
+      // Save recent projects in Rust
+      await invoke("write_recent_projects", { projects: updatedRecent });
 
       setEditorTabs(prev => ({ ...prev, [name]: [] }));
       setActiveTabId(prev => ({ ...prev, [name]: null }));
       setShowTerminal(prev => ({ ...prev, [name]: false }));
       setCurrentProject(name);
       setShowCreate(false);
-
-      // Save recent project in Rust side
-      await invoke("write_recent_projects", { recentProjects: recentProjects.slice(0, 4).concat({ name, path: projectPath }) });
     } catch (err) {
       console.error(err);
     }
   };
 
-  // ----------------- Select project (recent or normal) -----------------
+  // ---------------- Select project (recent or normal) ----------------
   const handleSelectProject = async (name: string, path: string) => {
     setCurrentProject(name);
 
-    // Fetch files if not already loaded
     if (!projectFiles[name]) {
       try {
         const children: ExplorerNode[] = await invoke("list_project_files", { projectPath: path });
@@ -88,27 +147,35 @@ export default function DashboardPage() {
           path,
           children,
         };
-
         setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
-        setEditorTabs(prev => ({ ...prev, [name]: [] }));
-        setActiveTabId(prev => ({ ...prev, [name]: null }));
-        setShowTerminal(prev => ({ ...prev, [name]: false }));
       } catch (err) {
         console.error("Failed to load project files:", err);
       }
     }
 
-    // Update recent projects
-    setRecentProjects(prev => {
-      const updated = [{ name, path }, ...prev.filter(p => p.name !== name)];
-      return updated.slice(0, 5);
-    });
+    try {
+      const savedState: EditorTabState[] = await invoke("load_editor_state");
+      const projectState = savedState.find(s => s.project_name === name);
+      if (projectState) {
+        setEditorTabs(prev => ({ ...prev, [name]: projectState.tabs }));
+        setActiveTabId(prev => ({ ...prev, [name]: projectState.active_tab_id || null }));
+      } else {
+        setEditorTabs(prev => ({ ...prev, [name]: [] }));
+        setActiveTabId(prev => ({ ...prev, [name]: null }));
+      }
+      setShowTerminal(prev => ({ ...prev, [name]: false }));
+    } catch (err) {
+      console.error("Failed to load project editor state:", err);
+    }
 
-    // Persist recent projects to Rust
-    await invoke("write_recent_projects", { recentProjects: recentProjects.slice(0, 4).concat({ name, path }) });
+    const updatedRecent = [{ name, path }, ...recentProjects.filter(p => p.name !== name)].slice(0, 5);
+    setRecentProjects(updatedRecent);
+
+    // Persist recent projects in Rust
+    await invoke("write_recent_projects", { projects: updatedRecent });
   };
 
-  // ----------------- Other editor functions -----------------
+  // ---------------- Editor helpers ----------------
   const openPostmanTab = useCallback(() => {
     if (!currentProject) return;
     const timestamp = new Date().getTime();
@@ -182,15 +249,25 @@ export default function DashboardPage() {
   const handleContentChange = useCallback(
     (tabId: string, content: string) => {
       if (!currentProject) return;
+
       setEditorTabs(prev => {
         const projectTabs = prev[currentProject] || [];
-        return {
-          ...prev,
-          [currentProject]: projectTabs.map(tab => (tab.id === tabId && tab.type !== "postman" ? { ...tab, saved: false } : tab)),
-        };
+        const updatedTabs = projectTabs.map(tab =>
+          tab.id === tabId && tab.type !== "postman" ? { ...tab, content, saved: false } : tab
+        );
+
+        invoke("save_editor_state", {
+          state: Object.entries({ ...prev, [currentProject]: updatedTabs }).map(([project_name, tabs]) => ({
+            project_name,
+            tabs,
+            active_tab_id: activeTabId[project_name] || null,
+          })),
+        }).catch(console.error);
+
+        return { ...prev, [currentProject]: updatedTabs };
       });
     },
-    [currentProject]
+    [currentProject, activeTabId]
   );
 
   const handleToggleTerminal = useCallback(() => {
@@ -198,6 +275,7 @@ export default function DashboardPage() {
     setShowTerminal(prev => ({ ...prev, [currentProject]: !prev[currentProject] }));
   }, [currentProject]);
 
+  // ---------------- Render ----------------
   const currentTabs = currentProject ? editorTabs[currentProject] || [] : [];
   const currentActiveTabId = currentProject ? activeTabId[currentProject] || null : null;
   const currentShowTerminal = currentProject ? showTerminal[currentProject] || false : false;
@@ -205,11 +283,10 @@ export default function DashboardPage() {
   const activeTab = currentTabs.find(tab => tab.id === currentActiveTabId);
   const isPostmanTab = activeTab?.type === "postman" || (activeTab?.name?.startsWith("Postman") ?? false);
 
-  // ----------------- Render -----------------
   return (
     <div className="flex h-screen w-screen bg-gray-50 overflow-hidden">
       <Sidebar
-        projects={projects.map(p => p.name)}
+        projects={[...projects.map(p => p.name), ...recentProjects.map(p => p.name)]}
         currentProject={currentProject}
         onSelectProject={(name) => {
           const proj = projects.find(p => p.name === name) || recentProjects.find(p => p.name === name);
@@ -232,43 +309,68 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {!currentProject ? (
           <div className="h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-white p-8">
-            <div className="max-w-md w-full text-center">
-              <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border border-blue-200 text-blue-600 flex items-center justify-center text-4xl mb-6 shadow-lg">
-                <IconFolderPlus size={48} />
-              </div>
+            <div className="max-w-2xl w-full">
+              {/* Header Section */}
+              <div className="text-center mb-12">
+                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border border-blue-200 text-blue-600 flex items-center justify-center text-4xl mb-6">
+                  <IconFolderPlus size={40} />
+                </div>
 
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome to Arduino IDE+</h1>
-              <p className="text-gray-600 mb-8">
-                A modern IDE for Arduino, C, and C++ development with clean interface and powerful features
-              </p>
+                <h1 className="text-3xl font-bold text-gray-800 mb-3">
+                  Welcome to <span className="text-blue-600">Arduino IDE+</span>
+                </h1>
+                <p className="text-lg text-gray-600 mb-8">
+                  Create your next Arduino project with a powerful, modern development environment.
+                </p>
 
-              <div className="flex gap-4 justify-center">
-                <button
-                  onClick={() => setShowCreate(true)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
-                >
-                  <IconPlus size={20} />
-                  Create New Project
-                </button>
-
-                <button className="px-6 py-3 bg-white border border-gray-300 text-gray-700 text-lg font-semibold rounded-lg hover:bg-gray-50 transition-all shadow-sm hover:shadow flex items-center gap-2">
-                  <IconSettings size={20} />
-                  Open Existing
-                </button>
-              </div>
-
-              {/* ---------- Recent Projects ---------- */}
-              <div className="mt-12 text-left">
-                <h2 className="text-lg font-semibold mb-2">Recent Projects</h2>
-                {recentProjects.slice(0, 5).map(p => (
+                {/* Action Buttons */}
+                <div className="flex gap-4 justify-center mb-12">
                   <button
-                    key={p.name}
-                    className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
-                    onClick={() => handleSelectProject(p.name, p.path)}
+                    onClick={() => setShowCreate(true)}
+                    className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow hover:shadow-lg flex items-center gap-2"
                   >
-                    {p.name}
+                    <IconPlus size={20} />
+                    Create New Project
                   </button>
-                ))}
+
+                  <button className="px-8 py-3 bg-white border border-gray-300 text-gray-700 text-lg font-semibold rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2">
+                    <IconSettings size={20} />
+                    Open Existing
+                  </button>
+                </div>
+              </div>
+
+              {/* Recent Projects Section */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <IconClock className="text-gray-500" size={20} />
+                  <h2 className="text-xl font-semibold text-gray-800">Recent Projects</h2>
+                </div>
+
+                {recentProjects.length > 0 ? (
+                  <div className="space-y-2">
+                    {recentProjects.slice(0, 5).map(p => (
+                      <button
+                        key={p.name}
+                        onClick={() => handleSelectProject(p.name, p.path)}
+                        className="w-full flex items-center gap-3 px-3 py-3 hover:bg-gray-50 rounded-md transition-colors text-left group"
+                      >
+                        <IconFolder className="text-blue-500 group-hover:text-blue-600" size={18} />
+                        <span className="font-medium text-gray-700 group-hover:text-blue-600">
+                          {p.name}
+                        </span>
+                        <span className="text-sm text-gray-500 truncate ml-auto">
+                          {p.path.split('/').pop()}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-gray-500">
+                    <IconFolder className="mx-auto mb-2 text-gray-400" size={24} />
+                    <p>No recent projects found</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

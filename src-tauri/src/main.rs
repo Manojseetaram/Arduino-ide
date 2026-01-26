@@ -24,7 +24,12 @@ fn main() {
             commands::flash::flash,
             commands::explorer::list_project_files,
             commands::explorer::read_file,
-            commands::build::get_project_path
+            commands::build::get_project_path,
+            commands::editor_state::save_editor_state,
+           
+            commands::editor_state::load_editor_state,
+            commands::explorer::create_folder,
+            commands::explorer::create_file
         ])
         .run(tauri::generate_context!())
         .expect("error running tauri app");

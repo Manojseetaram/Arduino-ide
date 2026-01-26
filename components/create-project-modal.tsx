@@ -49,28 +49,10 @@ export function CreateProjectModal({
                 if (e.key === "Escape") onClose();
               }}
             />
-            <p className="text-gray-500 text-xs mt-2">
-              Use lowercase letters, numbers, and hyphens
-            </p>
+        
           </div>
 
-          <div className="bg-blue-50 rounded-xl p-4 mb-6">
-            <h3 className="font-semibold text-blue-700 text-sm mb-2">Project Structure</h3>
-            <div className="text-sm text-blue-600 space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                <span>src/ - Source files (.ino, .cpp, .c)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                <span>include/ - Header files</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                <span>lib/ - Libraries</span>
-              </div>
-            </div>
-          </div>
+          
         </div>
 
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
