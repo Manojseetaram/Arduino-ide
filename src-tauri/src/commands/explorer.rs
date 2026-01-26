@@ -1,7 +1,6 @@
 use tauri::command;
 use std::fs::{self, File};
-use std::path::PathBuf;
-use serde::Serialize;
+
 #[derive(serde::Serialize)]
 pub struct ExplorerNode {
     pub id: String,

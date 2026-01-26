@@ -137,6 +137,29 @@ export default function DashboardPage() {
       console.error(err);
     }
   };
+  
+const updateFolderChildren = useCallback(
+  (folderId: string, children: ExplorerNode[]) => {
+    if (!currentProject) return;
+
+    const update = (nodes: ExplorerNode[]): ExplorerNode[] =>
+      nodes.map(node => {
+        if (node.id === folderId) {
+          return { ...node, children };
+        }
+        if (node.children) {
+          return { ...node, children: update(node.children) };
+        }
+        return node;
+      });
+
+    setProjectFiles(prev => ({
+      ...prev,
+      [currentProject]: update(prev[currentProject]),
+    }));
+  },
+  [currentProject]
+);
 
   // ---------------- Select project (recent or normal) ----------------
   const handleSelectProject = async (name: string, path: string) => {

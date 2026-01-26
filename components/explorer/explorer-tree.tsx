@@ -1,5 +1,6 @@
 "use client";
 
+import { invoke } from "@tauri-apps/api/tauri";
 import { ExplorerNode } from "./types";
 import { FileIcon, sortExplorerNodes, isEspIdfFile } from "./utils";
 import { IconFolder, IconFilePlus, IconFolderPlus, IconChevronRight, IconSettings, IconFile } from "@tabler/icons-react";
@@ -136,6 +137,10 @@ function FolderItem({
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
+  function updateFolderChildren(id: string, children: unknown) {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <div>
       <div
@@ -144,7 +149,7 @@ function FolderItem({
             ? "bg-blue-50" 
             : ""
         }`}
-       onClick={(e) => {
+       onClick={async (e) => {
   e.stopPropagation();
 
   console.log("🟢 Folder clicked:");
@@ -159,6 +164,18 @@ function FolderItem({
 
   onToggle(folder.id);
   onSelect(folder.id);
+  if (!folder.children || folder.children.length === 0) {
+    try {
+      const children = await invoke("list_project_files", {
+        projectPath: folder.path,
+      });
+
+      // update tree
+      updateFolderChildren(folder.id, children);
+    } catch (err) {
+      console.error("Failed to load folder:", folder.path, err);
+    }
+  }
 }}
 
         onMouseEnter={() => setIsHovered(true)}
