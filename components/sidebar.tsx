@@ -96,53 +96,59 @@ const handleCreateNode = useCallback(async () => {
       ? `${tempName}.cpp`
       : tempName;
 
-  // ✅ selectedFolderId must be RELATIVE ( "", "src", "src/utils" )
-  const relativeParent =
-    !selectedFolderId || selectedFolderId === ""
-      ? ""
-      : selectedFolderId.replace(`${currentProject}/`, "");
+  // ✅ parent is ALWAYS relative ("", "src", "src/utils")
+  const parent = selectedFolderId ?? "";
 
-  // ✅ THIS WAS MISSING (MOST IMPORTANT)
-  const relativePath = relativeParent
-    ? `${relativeParent}/${finalName}`
-    : finalName;
+  // ✅ build relative path
+  const relativePath = parent ? `${parent}/${finalName}` : finalName;
 
   try {
     await invoke(
       creating === "folder" ? "create_folder" : "create_file",
       {
-        projectName: currentProject, // ONLY project name
-        relativePath,                // ONLY inside project
+        projectName: currentProject,
+        relativePath,
       }
     );
 
     const newNode: ExplorerNode = {
-      id: relativePath, // ✅ relative path only
+      id: relativePath,          // ✅ RELATIVE ID
       name: finalName,
       type: creating,
-      ...(creating === "folder" ? { children: [] } : {}),
-      path: ""
+      children: creating === "folder" ? [] : undefined,
     };
 
-    const insert = (nodes: ExplorerNode[]): ExplorerNode[] =>
-      relativeParent === ""
-        ? [...nodes, newNode]
-        : nodes.map(n =>
-            n.id === relativeParent && n.type === "folder"
-              ? { ...n, children: [...(n.children || []), newNode] }
-              : n.children
-              ? { ...n, children: insert(n.children) }
-              : n
-          );
+    const insert = (nodes: ExplorerNode[]): ExplorerNode[] => {
+      // root insert
+      if (parent === "") return [...nodes, newNode];
 
-    setFiles(insert(files));
+      return nodes.map(node => {
+        if (node.id === parent && node.type === "folder") {
+          return {
+            ...node,
+            children: [...(node.children || []), newNode],
+          };
+        }
+
+        if (node.children) {
+          return {
+            ...node,
+            children: insert(node.children),
+          };
+        }
+
+        return node;
+      });
+    };
+
+    setFiles(prev => insert(prev));
   } catch (e) {
-    console.error(e);
+    console.error("Create failed:", e);
   }
 
   setCreating(null);
   setTempName("");
-}, [tempName, creating, selectedFolderId, currentProject, files]);
+}, [tempName, creating, selectedFolderId, currentProject]);
 
  
  
