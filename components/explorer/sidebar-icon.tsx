@@ -14,7 +14,7 @@ export function SidebarIcon({
   return (
     <button
       onClick={onClick}
-      className={`relative w-full h-12 flex items-center justify-center group ${
+      className={`relative w-full h-12 flex items-center justify-center p-4 group ${
         active ? "bg-blue-600 text-white" : "hover:bg-blue-500 hover:text-white"
       }`}
       title={tooltip}

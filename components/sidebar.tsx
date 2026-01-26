@@ -119,7 +119,7 @@ const newNode: ExplorerNode = {
   type: creating,
   path: absolutePath,          // ✅ THIS FIXES read_file
   children: creating === "folder" ? [] : undefined,
-  
+
 };
 
 
@@ -274,83 +274,70 @@ const newNode: ExplorerNode = {
   };
 
   return (
-    <div className="flex h-screen">
-      {/* Left Icon Bar */}
-      <div className="w-12 flex flex-col items-center bg-gray-50">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="h-10 w-full flex items-center justify-center hover:bg-gray-200"
-          title={isOpen ? "Close Sidebar" : "Open Sidebar"}
-        >
-          {isOpen ? (
-            <IconLayoutSidebarLeftCollapse size={18} className="text-gray-600" />
-          ) : (
-            <IconLayoutSidebarLeftExpand size={18} className="text-gray-600" />
-          )}
-        </button>
+   <div className="flex h-screen">
+  {/* Left Icon Bar */}
+  <div className="w-12 flex flex-col items-center bg-gray-50 py-2">
+    <SidebarIcon
+      onClick={() => setIsOpen(!isOpen)}
+      tooltip={isOpen ? "Close Sidebar" : "Open Sidebar"}
+    >
+      {isOpen ? <IconLayoutSidebarLeftCollapse size={18} /> : <IconLayoutSidebarLeftExpand size={18} />}
+    </SidebarIcon>
 
-        <div className="flex-1 flex flex-col items-center pt-4 space-y-1">
-          <SidebarIcon
-            active={panel === "explorer"}
-            onClick={() => handlePanelClick("explorer")}
-            tooltip="Explorer"
-            className={`${panel === "explorer" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200 text-gray-600"}`}
-          >
-            <IconFolder size={18} />
-          </SidebarIcon>
-
-          <SidebarIcon
-            active={panel === "search"}
-            onClick={() => handlePanelClick("search")}
-            tooltip="Search"
-            className={`${panel === "search" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200 text-gray-600"}`}
-          >
-            <IconSearch size={18} />
-          </SidebarIcon>
-
-          <SidebarIcon
-            active={panel === "extensions"}
-            onClick={() => handlePanelClick("extensions")}
-            tooltip="Extensions"
-            className={`${panel === "extensions" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200 text-gray-600"}`}
-          >
-            <IconPlug size={18} />
-          </SidebarIcon>
-        </div>
-
-        <div className="mt-auto mb-3">
-          <SidebarIcon
-            onClick={handlePostmanClick}
-            tooltip="API Testing"
-            className="bg-blue-600 text-white hover:bg-blue-700"
-          >
-            <IconSend size={18} />
-          </SidebarIcon>
-        </div>
-      </div>
-
-      {/* Main Sidebar */}
-      <div
-        className={`transition-all duration-200 overflow-hidden flex flex-col ${
-          isOpen ? "w-64" : "w-0"
-        } bg-white `}
+    <div className="flex-1 flex flex-col items-center pt-4 space-y-1">
+      <SidebarIcon
+        active={panel === "explorer"}
+        onClick={() => handlePanelClick("explorer")}
+      
       >
-        {isOpen && (
-          <>
-            <div className="px-3 py-2">
-              <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {panel === "explorer" && "Explorer"}
-                {panel === "search" && "Search"}
-                {panel === "extensions" && "Extensions"}
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-hidden">
-              {renderPanel()}
-            </div>
-          </>
-        )}
-      </div>
+        <IconFolder size={18} />
+      </SidebarIcon>
+
+      <SidebarIcon
+        active={panel === "search"}
+        onClick={() => handlePanelClick("search")}
+       
+      >
+        <IconSearch size={18} />
+      </SidebarIcon>
+
+      <SidebarIcon
+        active={panel === "extensions"}
+        onClick={() => handlePanelClick("extensions")}
+      
+      >
+        <IconPlug size={18} />
+      </SidebarIcon>
+
+      <SidebarIcon
+        onClick={handlePostmanClick}
+       
+      
+      >
+        <IconSend size={18} />
+      </SidebarIcon>
     </div>
+  </div>
+
+  {/* Main Sidebar */}
+  <div
+    className={`transition-all duration-200 overflow-hidden flex flex-col ${isOpen ? "w-64" : "w-0"} bg-white`}
+  >
+    {isOpen && (
+      <>
+        <div className="px-3 py-2">
+          <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+            {panel === "explorer" && "Explorer"}
+            {panel === "search" && "Search"}
+            {panel === "extensions" && "Extensions"}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden">{renderPanel()}</div>
+      </>
+    )}
+  </div>
+</div>
+
   );
 }
