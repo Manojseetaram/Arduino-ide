@@ -6,8 +6,8 @@ pub struct ExplorerNode {
     pub id: String,
     pub name: String,
     pub path: String,
-     #[serde(rename = "type")] // 🔥 THIS LINE FIXES EVERYTHING
-    pub node_type: String, // "file" or "folder"
+     #[serde(rename = "type")] 
+    pub node_type: String, 
     pub children: Option<Vec<ExplorerNode>>,
 }
 
@@ -91,3 +91,35 @@ pub fn create_file(project_name: String, relative_path: String) -> Result<String
     Ok(format!("Created: {}", file_path.display()))
 }
 
+#[command]
+pub fn rename_path(old_path: String, new_name: String) -> Result<(), String> {
+    use std::path::Path;
+    use std::fs;
+
+    let old = Path::new(&old_path);
+    let parent = old.parent().ok_or("Invalid path")?;
+    let new_path = parent.join(new_name);
+
+    fs::rename(old, new_path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_path(path: String) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+
+    let p = Path::new(&path);
+
+    if !p.exists() {
+        return Err(format!("Path does not exist: {}", path));
+    }
+
+    if p.is_dir() {
+        fs::remove_dir_all(p).map_err(|e| e.to_string())?;
+    } else {
+        fs::remove_file(p).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}

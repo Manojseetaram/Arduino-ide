@@ -137,7 +137,7 @@ export default function DashboardPage() {
       console.error(err);
     }
   };
-  
+
 const updateFolderChildren = useCallback(
   (folderId: string, children: ExplorerNode[]) => {
     if (!currentProject) return;
@@ -281,29 +281,51 @@ const updateFolderChildren = useCallback(
     [currentProject, editorTabs, activeTabId]
   );
 
-  const handleContentChange = useCallback(
-    (tabId: string, content: string) => {
-      if (!currentProject) return;
+const autoSave = useCallback(
+  debounce(async (tabPath: string, content: string) => {
+    try {
+      await invoke("save_file", { path: tabPath, content });
+      console.log("Auto-saved:", tabPath);
+    } catch (err) {
+      console.error("Auto-save failed:", err);
+    }
+  }, 1000), // save 1s after user stops typing
+  []
+);
 
-      setEditorTabs(prev => {
-        const projectTabs = prev[currentProject] || [];
-        const updatedTabs = projectTabs.map(tab =>
-          tab.id === tabId && tab.type !== "postman" ? { ...tab, content, saved: false } : tab
-        );
+const handleContentChange = useCallback(
+  (tabId: string, content: string) => {
+    if (!currentProject) return;
 
-        invoke("save_editor_state", {
-          state: Object.entries({ ...prev, [currentProject]: updatedTabs }).map(([project_name, tabs]) => ({
-            project_name,
-            tabs,
-            active_tab_id: activeTabId[project_name] || null,
-          })),
-        }).catch(console.error);
+    setEditorTabs(prev => {
+      const projectTabs = prev[currentProject] || [];
+      const updatedTabs = projectTabs.map(tab =>
+        tab.id === tabId && tab.type !== "postman" ? { ...tab, content, saved: false } : tab
+      );
 
-        return { ...prev, [currentProject]: updatedTabs };
-      });
-    },
-    [currentProject, activeTabId]
-  );
+  invoke("save_editor_state", {
+  state: Object.entries({ ...prev, [currentProject]: updatedTabs }).map(([project_name, tabs]) => ({
+    project_name,
+    tabs: tabs.map(tab => ({
+      ...tab,
+      tab_type: tab.type || "file"   // <-- ADD THIS LINE
+    })),
+    active_tab_id: activeTabId[project_name] || null,
+  })),
+}).catch(console.error);
+
+      // Auto-save to disk
+      const activeTab = projectTabs.find(tab => tab.id === tabId);
+      if (activeTab && activeTab.type === "file") {
+        autoSave(activeTab.path, content);
+      }
+
+      return { ...prev, [currentProject]: updatedTabs };
+    });
+  },
+  [currentProject, activeTabId, autoSave]
+);
+
 
   const handleToggleTerminal = useCallback(() => {
     if (!currentProject) return;
@@ -441,12 +463,22 @@ const updateFolderChildren = useCallback(
 }
 
 function normalizeNodes(nodes: any[], parentPath: string): ExplorerNode[] {
-  return nodes.map(node => ({
-    id: node.id || `${parentPath}/${node.name}`,
-    name: node.name,
-    type: node.type,
-    path: node.path,
-    children: node.children ? normalizeNodes(node.children, node.path) : [],
-    isOpen: false,
-  }));
+  return nodes
+    .filter(node => node.name !== ".DS_Store")
+    .map(node => ({
+      id: node.id || `${parentPath}/${node.name}`,
+      name: node.name,
+      type: node.type,
+      path: node.path,
+      children: node.children ? normalizeNodes(node.children, node.path) : [],
+      isOpen: false,
+    }));
+}
+
+function debounce<Func extends (...args: any[]) => void>(fn: Func, delay: number) {
+  let timer: NodeJS.Timeout;
+  return (...args: Parameters<Func>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
 }

@@ -7,6 +7,11 @@ export type ExplorerNode = {
   parentId?: string | null;
   isOpen: boolean; // ✅ FIX
 };
+export interface EditingState {
+  nodeId: string;
+  originalName: string;
+}
+
 
 // export interface SidebarProps {
 //   projects: string[];

@@ -18,17 +18,21 @@ pub fn get_recent_file_path() -> PathBuf {
     dir
 }
 
-// Helper: read recent projects
 #[command]
 pub fn read_recent_projects() -> Vec<Project> {
     let path = get_recent_file_path();
     if path.exists() {
         let data = fs::read_to_string(&path).unwrap_or_default();
-        serde_json::from_str(&data).unwrap_or_default()
+        let projects: Vec<Project> = serde_json::from_str(&data).unwrap_or_default();
+        // Filter out projects whose folder no longer exists
+        projects.into_iter()
+            .filter(|p| PathBuf::from(&p.path).exists())
+            .collect()
     } else {
         vec![]
     }
 }
+
 #[command]
 pub fn write_recent_projects(projects: Vec<Project>) -> bool {
     println!("Received projects: {:?}", projects);

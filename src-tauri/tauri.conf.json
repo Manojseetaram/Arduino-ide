@@ -18,7 +18,10 @@
         "message": true
       },
       "fs" : {
-      "all": true
+      "all": true,
+        "scope": [
+    "/Users/manojseetaramgowda/esp-projects"
+  ]
        
       }
     },
