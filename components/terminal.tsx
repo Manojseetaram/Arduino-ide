@@ -13,10 +13,7 @@ export default function Terminal({ theme }: Props) {
           : "bg-white text-gray-800"
       }`}
     >
-      <div>$ Arduino CLI 0.35.3</div>
-      <div>$ Compiling sketch...</div>
-      <div>$ Uploading...</div>
-      <div className="text-green-500">✔ Done</div>
+    
     </div>
   );
 }

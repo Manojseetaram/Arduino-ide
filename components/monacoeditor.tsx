@@ -162,15 +162,24 @@ await invoke("build_project", { projectPath });
             <IconTerminal2 size={16} />
             <span>Terminal</span>
           </button>
-         <button
+        <button
   onClick={async () => {
     if (!projectName) return;
 
-    // Clear previous logs
-    window.dispatchEvent(new CustomEvent("terminal:clear"));
-
     try {
-      await invoke("build_project", { projectPath: projectName });
+      // 1. Open terminal
+      if (!showTerminal) toggleTerminal();
+
+      // 2. Clear previous logs
+      window.dispatchEvent(new CustomEvent("terminal:clear"));
+
+      // 3. Resolve project path
+      const projectPath: string = await invoke("get_project_path", {
+        name: projectName,
+      });
+
+      // 4. Start build (ONLY ONCE)
+      await invoke("build_project", { projectPath });
     } catch (err) {
       console.error("Build failed:", err);
     }
@@ -179,6 +188,7 @@ await invoke("build_project", { projectPath });
 >
   Compile
 </button>
+
 
 
         </div>
