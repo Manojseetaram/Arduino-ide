@@ -111,12 +111,16 @@ const handleCreateNode = useCallback(async () => {
       }
     );
 
-    const newNode: ExplorerNode = {
-      id: relativePath,          // ✅ RELATIVE ID
-      name: finalName,
-      type: creating,
-      children: creating === "folder" ? [] : undefined,
-    };
+    const absolutePath = `/Users/manojseetaramgowda/esp-projects/${currentProject}/${relativePath}`;
+
+const newNode: ExplorerNode = {
+  id: relativePath,
+  name: finalName,
+  type: creating,
+  path: absolutePath,          // ✅ THIS FIXES read_file
+  children: creating === "folder" ? [] : undefined,
+};
+
 
     const insert = (nodes: ExplorerNode[]): ExplorerNode[] => {
       // root insert

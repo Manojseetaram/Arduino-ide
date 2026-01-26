@@ -5,7 +5,7 @@ export type ExplorerNode = {
   path: string;
   children?: ExplorerNode[];
   parentId?: string | null;
-  // isOpen: boolean; // ✅ FIX
+  isOpen: boolean; // ✅ FIX
 };
 
 // export interface SidebarProps {

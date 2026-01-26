@@ -82,6 +82,7 @@ export default function DashboardPage() {
               type: "folder",
               path: proj.path,
               children,
+              isOpen : false
             },
           ];
         } catch (err) {

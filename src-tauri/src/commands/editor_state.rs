@@ -45,3 +45,8 @@ pub fn load_editor_state() -> Result<Vec<EditorTabState>, String> {
     let state: Vec<EditorTabState> = serde_json::from_str(&data).map_err(|e| e.to_string())?;
     Ok(state)
 }
+#[command]
+pub fn save_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(path, content)
+        .map_err(|e| e.to_string())
+}

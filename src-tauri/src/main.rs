@@ -29,7 +29,8 @@ fn main() {
            
             commands::editor_state::load_editor_state,
             commands::explorer::create_folder,
-            commands::explorer::create_file
+            commands::explorer::create_file,
+            commands::editor_state::save_file
         ])
         .run(tauri::generate_context!())
         .expect("error running tauri app");

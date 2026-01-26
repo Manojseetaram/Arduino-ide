@@ -14,25 +14,30 @@ pub struct ExplorerNode {
 
 #[command]
 pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, String> {
-    fn read_dir(path: &PathBuf) -> Vec<ExplorerNode> {
+    let base = PathBuf::from(&project_path);
+
+    fn read_dir(base: &PathBuf, path: &PathBuf) -> Vec<ExplorerNode> {
         let mut nodes = vec![];
+
         if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.flatten() {
-                let path = entry.path();
+                let full_path = entry.path();
+                let rel_path = full_path.strip_prefix(base).unwrap();
                 let name = entry.file_name().to_string_lossy().to_string();
-                if path.is_dir() {
+
+                if full_path.is_dir() {
                     nodes.push(ExplorerNode {
-                        id: path.to_string_lossy().to_string(),
+                        id: rel_path.to_string_lossy().to_string(),   // ✅ RELATIVE
                         name,
-                        path: path.to_string_lossy().to_string(),
+                        path: full_path.to_string_lossy().to_string(),// ✅ ABSOLUTE
                         node_type: "folder".into(),
-                        children: Some(read_dir(&path)),
+                        children: Some(read_dir(base, &full_path)),
                     });
                 } else {
                     nodes.push(ExplorerNode {
-                        id: path.to_string_lossy().to_string(),
+                        id: rel_path.to_string_lossy().to_string(),   // ✅ RELATIVE
                         name,
-                        path: path.to_string_lossy().to_string(),
+                        path: full_path.to_string_lossy().to_string(),// ✅ ABSOLUTE
                         node_type: "file".into(),
                         children: None,
                     });
@@ -42,13 +47,13 @@ pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, Str
         nodes
     }
 
-    let path = PathBuf::from(project_path);
-    if !path.exists() {
+    if !base.exists() {
         return Err("Project path does not exist".into());
     }
 
-    Ok(read_dir(&path))
+    Ok(read_dir(&base, &base))
 }
+
 
 #[command]
 pub fn read_file(path: String) -> Result<String, String> {
