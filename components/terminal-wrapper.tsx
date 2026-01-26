@@ -70,6 +70,13 @@ useEffect(() => {
   };
 }, []);
 
+useEffect(() => {
+  const handleClear = () => setTerminalOutput([]);
+  window.addEventListener("terminal:clear", handleClear);
+
+  return () => window.removeEventListener("terminal:clear", handleClear);
+}, []);
+
 
   const handleCopyTerminal = () => {
     const text = terminalOutput.join('\n');

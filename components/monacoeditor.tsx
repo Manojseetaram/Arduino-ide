@@ -162,18 +162,24 @@ await invoke("build_project", { projectPath });
             <IconTerminal2 size={16} />
             <span>Terminal</span>
           </button>
-          <button
-  onClick={() => {
-    window.dispatchEvent(new Event("compile-project"));
+         <button
+  onClick={async () => {
+    if (!projectName) return;
+
+    // Clear previous logs
+    window.dispatchEvent(new CustomEvent("terminal:clear"));
+
+    try {
+      await invoke("build_project", { projectPath: projectName });
+    } catch (err) {
+      console.error("Build failed:", err);
+    }
   }}
-  className={`flex items-center gap-2 px-3 py-1 rounded text-sm ${
-    theme === "dark"
-      ? "bg-green-600 text-white hover:bg-green-500"
-      : "bg-green-500 text-white hover:bg-green-600"
-  }`}
+  className="px-3 py-1 rounded bg-green-600 hover:bg-green-500 text-white text-xs font-medium"
 >
-  ▶ Compile
+  Compile
 </button>
+
 
         </div>
       

@@ -34,6 +34,7 @@ export function EditorTopbar({
       >
         {terminalOpen ? "Close Terminal" : "Open Terminal"}
       </button>
+      
     </div>
   );
 }
