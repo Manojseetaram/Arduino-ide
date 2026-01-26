@@ -73,7 +73,10 @@ export default function DashboardPage() {
 
       for (const proj of allProjects) {
         try {
-          const children: ExplorerNode[] = await invoke("list_project_files", { projectPath: proj.path });
+         const children: ExplorerNode[] = normalizeNodes(
+  await invoke("list_project_files", { projectPath: proj.path }),
+  proj.path
+);
 
           filesState[proj.name] = [
             {
@@ -113,6 +116,7 @@ export default function DashboardPage() {
         type: "folder",
         path: projectPath,
         children,
+        isOpen: false
       };
 
       setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
@@ -195,38 +199,45 @@ export default function DashboardPage() {
     setActiveTabId(prev => ({ ...prev, [currentProject]: postmanTab.id }));
   }, [currentProject]);
 
-  const handleFileSelect = useCallback(
-    async (file: ExplorerNode) => {
-      if (!currentProject || file.type === "folder") return;
+ const handleFileSelect = useCallback(
+  async (node: ExplorerNode) => {
+    // 🚨 ABSOLUTE GUARD
+    if (node.type !== "file") {
+      console.warn("Blocked directory open:", node.path);
+      return;
+    }
 
-      const projectTabs = editorTabs[currentProject] || [];
-      const existingTab = projectTabs.find(tab => tab.path === file.path);
+    if (!currentProject) return;
 
-      if (existingTab) {
-        setActiveTabId(prev => ({ ...prev, [currentProject]: existingTab.id }));
-        return;
-      }
+    const projectTabs = editorTabs[currentProject] || [];
+    const existingTab = projectTabs.find(tab => tab.path === node.path);
 
-      const content: string = await invoke("read_file", { path: file.path });
+    if (existingTab) {
+      setActiveTabId(prev => ({ ...prev, [currentProject]: existingTab.id }));
+      return;
+    }
 
-      const newTab: EditorTab = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        path: file.path,
-        content,
-        saved: true,
-        type: "file",
-      };
+    const content: string = await invoke("read_file", { path: node.path });
 
-      setEditorTabs(prev => ({
-        ...prev,
-        [currentProject]: [...(prev[currentProject] || []), newTab],
-      }));
+    const newTab: EditorTab = {
+      id: crypto.randomUUID(),
+      name: node.name,
+      path: node.path,
+      content,
+      saved: true,
+      type: "file",
+    };
 
-      setActiveTabId(prev => ({ ...prev, [currentProject]: newTab.id }));
-    },
-    [currentProject, editorTabs]
-  );
+    setEditorTabs(prev => ({
+      ...prev,
+      [currentProject]: [...(prev[currentProject] || []), newTab],
+    }));
+
+    setActiveTabId(prev => ({ ...prev, [currentProject]: newTab.id }));
+  },
+  [currentProject, editorTabs]
+);
+
 
   const handleTabSelect = useCallback((tabId: string) => {
     if (!currentProject) return;
@@ -404,4 +415,15 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+}
+
+function normalizeNodes(nodes: any[], parentPath: string): ExplorerNode[] {
+  return nodes.map(node => ({
+    id: node.id || `${parentPath}/${node.name}`,
+    name: node.name,
+    type: node.type,
+    path: node.path,
+    children: node.children ? normalizeNodes(node.children, node.path) : [],
+    isOpen: false,
+  }));
 }

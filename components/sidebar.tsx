@@ -119,6 +119,7 @@ const newNode: ExplorerNode = {
   type: creating,
   path: absolutePath,          // ✅ THIS FIXES read_file
   children: creating === "folder" ? [] : undefined,
+  
 };
 
 

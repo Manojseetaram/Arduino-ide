@@ -144,12 +144,23 @@ function FolderItem({
             ? "bg-blue-50" 
             : ""
         }`}
-        onClick={(e) => {
-          e.stopPropagation();
-          console.log(`Folder clicked: ${folder.name}`);
-          onToggle(folder.id);
-          onSelect(folder.id);
-        }}
+       onClick={(e) => {
+  e.stopPropagation();
+
+  console.log("🟢 Folder clicked:");
+  console.log({
+    id: folder.id,
+    name: folder.name,
+    type: folder.type,
+    path: folder.path,
+    children: folder.children,
+    isOpen: folder.isOpen,
+  });
+
+  onToggle(folder.id);
+  onSelect(folder.id);
+}}
+
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}

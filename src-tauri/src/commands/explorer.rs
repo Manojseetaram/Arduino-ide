@@ -1,59 +1,46 @@
 use tauri::command;
 use std::fs::{self, File};
 use std::path::PathBuf;
-
+use serde::Serialize;
 #[derive(serde::Serialize)]
 pub struct ExplorerNode {
     pub id: String,
     pub name: String,
     pub path: String,
+     #[serde(rename = "type")] // 🔥 THIS LINE FIXES EVERYTHING
     pub node_type: String, // "file" or "folder"
     pub children: Option<Vec<ExplorerNode>>,
 }
 
 
-#[command]
+#[tauri::command]
 pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, String> {
-    let base = PathBuf::from(&project_path);
+    let mut nodes = Vec::new();
 
-    fn read_dir(base: &PathBuf, path: &PathBuf) -> Vec<ExplorerNode> {
-        let mut nodes = vec![];
+    let entries = fs::read_dir(&project_path).map_err(|e| e.to_string())?;
 
-        if let Ok(entries) = fs::read_dir(path) {
-            for entry in entries.flatten() {
-                let full_path = entry.path();
-                let rel_path = full_path.strip_prefix(base).unwrap();
-                let name = entry.file_name().to_string_lossy().to_string();
+    for entry in entries {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
 
-                if full_path.is_dir() {
-                    nodes.push(ExplorerNode {
-                        id: rel_path.to_string_lossy().to_string(),   // ✅ RELATIVE
-                        name,
-                        path: full_path.to_string_lossy().to_string(),// ✅ ABSOLUTE
-                        node_type: "folder".into(),
-                        children: Some(read_dir(base, &full_path)),
-                    });
-                } else {
-                    nodes.push(ExplorerNode {
-                        id: rel_path.to_string_lossy().to_string(),   // ✅ RELATIVE
-                        name,
-                        path: full_path.to_string_lossy().to_string(),// ✅ ABSOLUTE
-                        node_type: "file".into(),
-                        children: None,
-                    });
-                }
-            }
-        }
-        nodes
+        let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+        let is_dir = metadata.is_dir();
+
+        nodes.push(ExplorerNode {
+            id: path.to_string_lossy().to_string(),
+            name: entry.file_name().to_string_lossy().to_string(),
+            path: path.to_string_lossy().to_string(),
+            node_type: if is_dir { "folder".into() } else { "file".into() },
+            children: if is_dir {
+                Some(list_project_files(path.to_string_lossy().to_string())?)
+            } else {
+                None
+            },
+        });
     }
 
-    if !base.exists() {
-        return Err("Project path does not exist".into());
-    }
-
-    Ok(read_dir(&base, &base))
+    Ok(nodes)
 }
-
 
 #[command]
 pub fn read_file(path: String) -> Result<String, String> {
