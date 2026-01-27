@@ -49,7 +49,6 @@ pub fn write_recent_projects(projects: Vec<Project>) -> bool {
 }
 
 
-
 #[command]
 pub fn create_project(name: String) -> Result<String, String> {
     if name.trim().is_empty() {
@@ -58,14 +57,9 @@ pub fn create_project(name: String) -> Result<String, String> {
 
     let home = dirs::home_dir().ok_or("Failed to find home directory")?;
     let base_path = home.join("esp-projects");
-    fs::create_dir_all(&base_path)
-        .map_err(|e| format!("Failed to create base path: {}", e))?;
 
-    let project_path = base_path.join(&name);
-    fs::create_dir_all(&project_path)
-        .map_err(|e| format!("Failed to create project folder: {}", e))?;
-
-    println!("Creating project at: {}", project_path.display());
+    // ✅ DON'T pre-create the folder, let idf.py do it
+    // fs::create_dir_all(&base_path.join(&name))?;
 
     let idf_path = home.join("esp/esp-idf");
     let python = home.join(".espressif/python_env/idf6.0_py3.14_env/bin/python");
@@ -75,11 +69,12 @@ pub fn create_project(name: String) -> Result<String, String> {
         return Err("ESP-IDF python environment not found".into());
     }
 
+    // Run create-project in the base_path, idf.py will create the folder
     let status = Command::new(&python)
         .arg(idf_py)
         .arg("create-project")
-        .arg(&name)
-        .current_dir(&base_path)
+        .arg(&name)             // use project name
+        .current_dir(&base_path) 
         .env("IDF_PATH", &idf_path)
         .env("PYTHONPATH", "")
         .status()
@@ -92,16 +87,15 @@ pub fn create_project(name: String) -> Result<String, String> {
         ));
     }
 
-    // ------------------- Update recent projects -------------------
+    let project_path = base_path.join(&name);
+
+    // recent projects
     let mut recent = read_recent_projects();
-    // Remove duplicates
     recent.retain(|p| p.name != name);
-    // Insert new project at the beginning
     recent.insert(0, Project {
         name: name.clone(),
         path: project_path.to_string_lossy().to_string(),
     });
-    // Keep top 5 recent
     if recent.len() > 5 {
         recent.truncate(5);
     }

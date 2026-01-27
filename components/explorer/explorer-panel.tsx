@@ -1,13 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
 import { ExplorerNode } from "./types";
-import { IconFolder, IconChevronRight, IconChevronDown, IconFolderPlus, IconFilePlus } from "@tabler/icons-react";
+import { IconFolder, IconChevronRight, IconFolderPlus, IconFilePlus } from "@tabler/icons-react";
 import { ExplorerTree } from "./explorer-tree";
+import { fetchProjectFiles } from "@/lib/tauriApi"; // adjust path to your fetchProjectFiles
 
 interface ExplorerPanelProps {
   currentProject: string | null;
   theme: "light" | "dark";
   files: ExplorerNode[];
+  setProjectFiles: (files: ExplorerNode[]) => void; // add this prop
   selectedFolderId: string | null;
   creating: "file" | "folder" | null;
   tempName: string;
@@ -27,6 +30,7 @@ export function ExplorerPanel({
   currentProject,
   theme,
   files,
+  setProjectFiles,
   selectedFolderId,
   creating,
   tempName,
@@ -41,7 +45,10 @@ export function ExplorerPanel({
   onTempNameChange,
   showProjectHeader = true,
 }: ExplorerPanelProps) {
-  const projectNode = files[0];
+ const projectNode = files.find(f => f.type === "folder");
+
+
+  // 🔥 Listen for refresh-project-files event
 
   if (!currentProject || !projectNode) {
     return (
@@ -57,7 +64,7 @@ export function ExplorerPanel({
       {showProjectHeader && (
         <div className="mb-3">
           <div
-            className="group flex items-center justify-between px-3 py-2.5 rounded-lg  from-blue-50 to-blue-100  cursor-pointer"
+            className="group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer"
             onClick={() => onFolderToggle(projectNode.id)}
           >
             <div className="flex items-center gap-3">
@@ -67,10 +74,10 @@ export function ExplorerPanel({
               <IconFolder size={18} className="text-blue-600" />
               <span className="font-semibold text-gray-800">{currentProject}</span>
             </div>
-            
+
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
               <button
-                className="p-1.5  bg-white hover:bg-blue-50 text-blue-600  transition-colors"
+                className="p-1.5 bg-white hover:bg-blue-50 text-blue-600 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStartCreate("file", projectNode.id);
@@ -95,7 +102,7 @@ export function ExplorerPanel({
       )}
 
       {(!currentProject || (projectNode && openFolders.has(projectNode.id))) && (
-        <div className="overflow-y-auto   bg-white">
+        <div className="overflow-y-auto bg-white">
           <ExplorerTree
             nodes={projectNode?.children || []}
             onFolderSelect={onFolderSelect}

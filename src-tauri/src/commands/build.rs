@@ -1,7 +1,9 @@
 use tauri::Window;
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader};
-use std::thread;
+
+
+use std::{thread, time::Duration}; 
 
 #[tauri::command]
 pub fn build_project(project_path: String, window: Window) -> Result<(), String> {
@@ -12,9 +14,7 @@ pub fn build_project(project_path: String, window: Window) -> Result<(), String>
         return Err("ESP-IDF export.sh not found".into());
     }
 
-    // Tell frontend build started
     let _ = window.emit("build-log", "==> Starting ESP-IDF build...");
-    let _ = window.emit("build-log", "==> Loading ESP-IDF environment...");
 
     let mut child = Command::new("bash")
         .arg("-c")
@@ -34,7 +34,6 @@ pub fn build_project(project_path: String, window: Window) -> Result<(), String>
     let win_out = window.clone();
     let win_err = window.clone();
 
-    // stdout thread
     thread::spawn(move || {
         let reader = BufReader::new(stdout);
         for line in reader.lines().flatten() {
@@ -42,7 +41,6 @@ pub fn build_project(project_path: String, window: Window) -> Result<(), String>
         }
     });
 
-    // stderr thread
     thread::spawn(move || {
         let reader = BufReader::new(stderr);
         for line in reader.lines().flatten() {
@@ -53,7 +51,14 @@ pub fn build_project(project_path: String, window: Window) -> Result<(), String>
     let status = child.wait().map_err(|e| e.to_string())?;
 
     if status.success() {
+        // ✅ WAIT for filesystem to settle
+        thread::sleep(Duration::from_millis(200));
+
         let _ = window.emit("build-finished", "Build successful");
+
+        // ✅ Tell frontend to refresh explorer
+        let _ = window.emit("refresh-project-files", project_path);
+
         Ok(())
     } else {
         let _ = window.emit("build-finished", "Build failed");

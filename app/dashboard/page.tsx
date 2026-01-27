@@ -31,6 +31,9 @@ export default function DashboardPage() {
   const [editorTabs, setEditorTabs] = useState<Record<string, EditorTab[]>>({});
   const [activeTabId, setActiveTabId] = useState<Record<string, string | null>>({});
   const [showTerminal, setShowTerminal] = useState<Record<string, boolean>>({});
+const uniqueProjectNames = Array.from(
+  new Set([...projects.map(p => p.name), ...recentProjects.map(p => p.name)])
+);
 
   // ---------------- Load recent projects ----------------
   useEffect(() => {
@@ -342,13 +345,13 @@ const handleContentChange = useCallback(
 
   return (
     <div className="flex h-screen w-screen bg-gray-50 overflow-hidden">
-      <Sidebar
-        projects={[...projects.map(p => p.name), ...recentProjects.map(p => p.name)]}
-        currentProject={currentProject}
-        onSelectProject={(name) => {
-          const proj = projects.find(p => p.name === name) || recentProjects.find(p => p.name === name);
-          if (proj) handleSelectProject(proj.name, proj.path);
-        }}
+     <Sidebar
+  projects={uniqueProjectNames}
+  currentProject={currentProject}
+  onSelectProject={(name) => {
+    const proj = projects.find(p => p.name === name) || recentProjects.find(p => p.name === name);
+    if (proj) handleSelectProject(proj.name, proj.path);
+  }}
         theme={theme}
         files={currentFiles}
         setFiles={(value) => {

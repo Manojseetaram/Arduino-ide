@@ -1,10 +1,9 @@
+// components/useBuildState.ts
 import { useState } from "react";
 
 export function useBuildState() {
   const [isBuilding, setIsBuilding] = useState(false);
-  const [status, setStatus] = useState<
-    "idle" | "building" | "success" | "error"
-  >("idle");
+  const [status, setStatus] = useState<"idle" | "building" | "success" | "error">("idle");
 
   return {
     isBuilding,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
@@ -22,6 +22,8 @@ import { SearchPanel } from "@/components/explorer/search-panel";
 import { ExplorerPanel } from "@/components/explorer/explorer-panel";
 import { SidebarIcon } from "@/components/explorer/sidebar-icon";
 import { ExtensionsPanel } from "./explorer/extensions-panel";
+import { fetchProjectFiles } from "@/lib/tauriApi";
+import { listen } from "@tauri-apps/api/event";
 
 export function Sidebar({
   projects,
@@ -48,27 +50,6 @@ export function Sidebar({
   const setFiles = externalSetFiles || (() => {});
 
   // Get project node for current project
-const getCurrentProjectNode = useCallback(() => {
-  if (!currentProject) return null;
-
-  let projectNode = files.find(f => f.name === currentProject && f.type === "folder");
-
-  if (!projectNode) {
-    // If project doesn't exist in files yet, create it
-    projectNode = {
-      id: currentProject,
-      name: currentProject,
-      type: "folder" as const,
-      path: `/Users/manojseetaramgowda/esp-projects/${currentProject}`,
-      children: [],
-    };
-  }
-
-  // Make sure children exists
-  if (!projectNode.children) projectNode.children = [];
-
-  return projectNode;
-}, [currentProject, files]);
 
 
   const toggleFolder = useCallback((folderId: string) => {
@@ -85,6 +66,33 @@ const getCurrentProjectNode = useCallback(() => {
 const safeProjects = Array.isArray(projects) ? projects : [];
 console.log("Projects:", safeProjects);
 
+
+useEffect(() => {
+  let unlisten: (() => void) | undefined;
+
+  (async () => {
+    unlisten = await listen<string>(
+      "refresh-project-files",
+      async (event) => {
+        console.log("TAURI REFRESH EVENT RECEIVED", event.payload);
+
+        const projectPath = event.payload;
+        const refreshedFiles = await fetchProjectFiles(projectPath);
+
+        setFiles(refreshedFiles);
+
+        // open project root so build/ is visible
+        if (refreshedFiles[0]) {
+          setOpenFolders(new Set([refreshedFiles[0].id]));
+        }
+      }
+    );
+  })();
+
+  return () => {
+    if (unlisten) unlisten();
+  };
+}, [setFiles]);
 
 
 
@@ -210,68 +218,64 @@ const newNode: ExplorerNode = {
     }
   }, [files, onSelectProject, openFolders, toggleFolder]);
 
-  const renderPanel = () => {
-    switch (panel) {
-      case "explorer":
-        const projectNode = getCurrentProjectNode();
-        const projectFilesArray = projectNode ? [projectNode] : [];
-        
-        return (
-          <div className="flex flex-col h-full">
-            {/* Projects Header */}
-           
-
-            {/* File Explorer */}
-            <div className="flex-1 overflow-auto p-1">
-              {currentProject ? (
-                <ExplorerPanel
-                  currentProject={currentProject}
-                  theme={theme}
-                  files={projectFilesArray}
-                  selectedFolderId={selectedFolderId}
-                  creating={creating}
-                  tempName={tempName}
-                  openFolders={openFolders}
-                  activeFileId={activeFileId}
-                  onFolderSelect={setSelectedFolderId}
-                  onFileSelect={onFileSelect}
-                  onFolderToggle={toggleFolder}
-                  onStartCreate={(type, folderId) => {
-                    console.log("Start create:", type, "in folder:", folderId);
-                    setSelectedFolderId(folderId);
-                    setCreating(type);
-                    setTempName("");
-                  }}
-                  onCreateNode={handleCreateNode}
-                  onCancelCreate={handleCancelCreate}
-                  onTempNameChange={setTempName}
-                  showProjectHeader={true}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4">
-                  <IconFolder size={32} className="text-gray-300 mb-3" />
-                  <p className="text-sm">Select a project</p>
-                </div>
-              )}
-            </div>
+const renderPanel = () => {
+  switch (panel) {
+    case "explorer":
+       const projectFilesArray = files; // <- directly use backend result
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex-1 overflow-auto p-1">
+            {currentProject ? (
+              <ExplorerPanel
+                currentProject={currentProject}
+                theme={theme}
+                files={files}
+                selectedFolderId={selectedFolderId}
+                creating={creating}
+                tempName={tempName}
+                openFolders={openFolders}
+                activeFileId={activeFileId}
+                onFolderSelect={setSelectedFolderId}
+                onFileSelect={onFileSelect}
+                onFolderToggle={toggleFolder}
+                onStartCreate={(type, folderId) => {
+                  setSelectedFolderId(folderId);
+                  setCreating(type);
+                  setTempName("");
+                }}
+                onCreateNode={handleCreateNode}
+                onCancelCreate={handleCancelCreate}
+                onTempNameChange={setTempName}
+                showProjectHeader
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4">
+                <IconFolder size={32} className="text-gray-300 mb-3" />
+                <p className="text-sm">Select a project</p>
+              </div>
+            )}
           </div>
-        );
-      case "search":
-        return (
-          <SearchPanel
-            nodes={files}
-            theme={theme}
-            onFileSelect={onFileSelect}
-            onFolderToggle={toggleFolder}
-            activeFileId={activeFileId}
-          />
-        );
-      case "extensions":
-        return <ExtensionsPanel theme={theme} />;
-      default:
-        return null;
-    }
-  };
+        </div>
+      );
+
+    case "search":
+      return (
+        <SearchPanel
+          nodes={files}
+          theme={theme}
+          onFileSelect={onFileSelect}
+          onFolderToggle={toggleFolder}
+          activeFileId={activeFileId}
+        />
+      );
+
+    case "extensions":
+      return <ExtensionsPanel theme={theme} />;
+
+    default:
+      return null;
+  }
+};
 
   return (
    <div className="flex h-screen">

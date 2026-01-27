@@ -1,7 +1,7 @@
 use tauri::command;
 use std::fs::{self, File};
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone, Debug)]
 pub struct ExplorerNode {
     pub id: String,
     pub name: String,
@@ -10,28 +10,56 @@ pub struct ExplorerNode {
     pub node_type: String, 
     pub children: Option<Vec<ExplorerNode>>,
 }
-
-
 #[tauri::command]
 pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, String> {
+    let root = std::path::Path::new(&project_path);
+
+    let project_name = root
+        .file_name()
+        .ok_or("Invalid project path")?
+        .to_string_lossy()
+        .to_string();
+
+    let mut entries = read_dir_recursive(root)?;
+
+    // 🔹 FIX: remove inner folder with same name as project
+    entries = entries
+        .into_iter()
+        .flat_map(|node| {
+            if node.node_type == "folder" && node.name == project_name {
+                // unwrap children directly
+                node.children.unwrap_or_default()
+            } else {
+                vec![node]
+            }
+        })
+        .collect();
+
+    Ok(vec![ExplorerNode {
+        id: project_path.clone(),
+        name: project_name.clone(),
+        path: project_path.clone(),
+        node_type: "folder".into(),
+        children: Some(entries),
+    }])
+}
+
+
+fn read_dir_recursive(path: &std::path::Path) -> Result<Vec<ExplorerNode>, String> {
     let mut nodes = Vec::new();
 
-    let entries = fs::read_dir(&project_path).map_err(|e| e.to_string())?;
-
-    for entry in entries {
+    for entry in std::fs::read_dir(path).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-
-        let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
-        let is_dir = metadata.is_dir();
+        let entry_path = entry.path();
+        let is_dir = entry_path.is_dir();
 
         nodes.push(ExplorerNode {
-            id: path.to_string_lossy().to_string(),
+            id: entry_path.to_string_lossy().to_string(),
             name: entry.file_name().to_string_lossy().to_string(),
-            path: path.to_string_lossy().to_string(),
+            path: entry_path.to_string_lossy().to_string(),
             node_type: if is_dir { "folder".into() } else { "file".into() },
             children: if is_dir {
-                Some(list_project_files(path.to_string_lossy().to_string())?)
+                Some(read_dir_recursive(&entry_path)?)
             } else {
                 None
             },
@@ -40,6 +68,7 @@ pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, Str
 
     Ok(nodes)
 }
+
 
 #[command]
 pub fn read_file(path: String) -> Result<String, String> {

@@ -39,7 +39,13 @@ export function MonacoEditor({
   const toggleTerminal = onToggleTerminal || (() => setInternalShowTerminal(!showTerminal));
   
   const activeTab = tabs.find(tab => tab.id === activeTabId);
-  
+  const [isBuilding, setIsBuilding] = useState(false);
+
+const startBuild = () => setIsBuilding(true);
+const finishSuccess = () => setIsBuilding(false);
+const finishError = () => setIsBuilding(false);
+const reset = () => setIsBuilding(false);
+
   const getLanguageFromFilename = (filename: string): string => {
     if (filename.endsWith('.js')) return 'javascript';
     if (filename.endsWith('.ts')) return 'typescript';
@@ -89,6 +95,32 @@ await invoke("build_project", { projectPath });
   return () => window.removeEventListener("compile-project", handler);
 }, [projectName]);
 
+const handleCompile = async () => {
+  if (!projectName || isBuilding) return;
+
+  try {
+    startBuild();
+
+    // Clear previous terminal/logs
+    window.dispatchEvent(new CustomEvent("terminal:clear"));
+
+    // Resolve project path
+    const projectPath: string = await invoke("get_project_path", { name: projectName });
+
+    // Trigger build
+    await invoke("build_project", { projectPath });
+
+    finishSuccess();
+
+    // 🔔 Trigger refresh of project explorer
+    window.dispatchEvent(new CustomEvent("refresh-project-files", { detail: projectPath }));
+  } catch (err) {
+    console.error("Build failed:", err);
+    finishError();
+  } finally {
+    setTimeout(reset, 2000); // reset toast after 2s
+  }
+};
 
   // Initialize content for new tabs
   useEffect(() => {
