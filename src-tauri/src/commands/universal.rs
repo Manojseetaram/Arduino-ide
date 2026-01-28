@@ -52,7 +52,7 @@ pub async fn send_universal(
 
     match &result {
         Ok(res) => {
-            println!("✅ Response:");
+            println!(" Response:");
             println!("{:#?}", res);
         }
         Err(err) => {

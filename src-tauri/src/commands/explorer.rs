@@ -22,12 +22,11 @@ pub fn list_project_files(project_path: String) -> Result<Vec<ExplorerNode>, Str
 
     let mut entries = read_dir_recursive(root)?;
 
-    // 🔹 FIX: remove inner folder with same name as project
-    entries = entries
+   entries = entries
         .into_iter()
         .flat_map(|node| {
             if node.node_type == "folder" && node.name == project_name {
-                // unwrap children directly
+           
                 node.children.unwrap_or_default()
             } else {
                 vec![node]
@@ -69,7 +68,6 @@ fn read_dir_recursive(path: &std::path::Path) -> Result<Vec<ExplorerNode>, Strin
     Ok(nodes)
 }
 
-
 #[command]
 pub fn read_file(path: String) -> Result<String, String> {
     let p = std::path::Path::new(&path);
@@ -78,8 +76,15 @@ pub fn read_file(path: String) -> Result<String, String> {
         return Err("Cannot open a directory".into());
     }
 
-    std::fs::read_to_string(p).map_err(|e| e.to_string())
+
+    if p.extension().and_then(|e| e.to_str()) == Some("bin") {
+        return Err("Binary file – cannot be opened as text".into());
+    }
+
+    std::fs::read_to_string(p)
+        .map_err(|e| e.to_string())
 }
+
 
 #[command]
 pub fn create_folder(project_name: String, relative_path: String) -> Result<String, String> {
