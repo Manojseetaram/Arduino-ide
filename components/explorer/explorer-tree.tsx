@@ -178,12 +178,7 @@ function FolderItem({
 }: FolderItemProps) {
   const [isHovered, setIsHovered] = useState(false);
 
-  async function updateFolderChildren(id: string, children: ExplorerNode[]) {
-    // This function should update the parent component's state
-    // The actual implementation depends on your state management
-    console.log("Updating folder children:", id, children);
-    // You might need to call a parent function to update the nodes
-  }
+  
 
   return (
     <div>
@@ -208,18 +203,7 @@ function FolderItem({
 
           onToggle(folder.id);
           onSelect(folder.id);
-          if (!folder.children || folder.children.length === 0) {
-            try {
-              const children = await invoke<ExplorerNode[]>("list_project_files", {
-                projectPath: folder.path,
-              });
-
-              // update tree
-              updateFolderChildren(folder.id, children);
-            } catch (err) {
-              console.error("Failed to load folder:", folder.path, err);
-            }
-          }
+          
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}

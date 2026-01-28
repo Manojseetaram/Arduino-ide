@@ -58,8 +58,7 @@ pub fn create_project(name: String) -> Result<String, String> {
     let home = dirs::home_dir().ok_or("Failed to find home directory")?;
     let base_path = home.join("esp-projects");
 
-    // ✅ DON'T pre-create the folder, let idf.py do it
-    // fs::create_dir_all(&base_path.join(&name))?;
+   
 
     let idf_path = home.join("esp/esp-idf");
     let python = home.join(".espressif/python_env/idf6.0_py3.14_env/bin/python");
@@ -89,7 +88,7 @@ pub fn create_project(name: String) -> Result<String, String> {
 
     let project_path = base_path.join(&name);
 
-    // recent projects
+    
     let mut recent = read_recent_projects();
     recent.retain(|p| p.name != name);
     recent.insert(0, Project {

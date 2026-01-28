@@ -56,7 +56,7 @@ pub async fn send_universal(
             println!("{:#?}", res);
         }
         Err(err) => {
-            println!("❌ Error:");
+            println!(" Error:");
             println!("{}", err);
         }
     }

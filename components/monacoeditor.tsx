@@ -1,12 +1,11 @@
-"use client"
+"use client";
 
 import { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
-import { IconX, IconTerminal2 } from "@tabler/icons-react";
+import { IconX, IconTerminal2, IconPlayerPlay } from "@tabler/icons-react";
 import { EditorTab } from "./explorer/types";
 import TerminalWrapper from "./terminal-wrapper";
 import { invoke } from "@tauri-apps/api/tauri";
-import { IconPlayerPlay } from "@tabler/icons-react";
 
 interface MonacoEditorProps {
   projectName: string;
@@ -20,49 +19,68 @@ interface MonacoEditorProps {
   onToggleTerminal?: () => void;
 }
 
-export function MonacoEditor({ 
-  projectName, 
-  theme, 
+export function MonacoEditor({
+  projectName,
+  theme,
   tabs,
   activeTabId,
   onTabSelect,
   onTabClose,
   onContentChange,
   showTerminal: externalShowTerminal,
-  onToggleTerminal
+  onToggleTerminal,
 }: MonacoEditorProps) {
   const [editorContent, setEditorContent] = useState<Record<string, string>>({});
   const [internalShowTerminal, setInternalShowTerminal] = useState(false);
-  
-  // Use external terminal control if provided, otherwise use internal state
-  const showTerminal = externalShowTerminal !== undefined ? externalShowTerminal : internalShowTerminal;
-  const toggleTerminal = onToggleTerminal || (() => setInternalShowTerminal(!showTerminal));
-  
-  const activeTab = tabs.find(tab => tab.id === activeTabId);
   const [isBuilding, setIsBuilding] = useState(false);
+  const [isTerminalOpening, setIsTerminalOpening] = useState(false);
 
-const startBuild = () => setIsBuilding(true);
-const finishSuccess = () => setIsBuilding(false);
-const finishError = () => setIsBuilding(false);
-const reset = () => setIsBuilding(false);
+  const showTerminal =
+    externalShowTerminal !== undefined
+      ? externalShowTerminal
+      : internalShowTerminal;
+
+  const toggleTerminal =
+    onToggleTerminal ||
+    (() => setInternalShowTerminal((prev) => !prev));
+
+  // 🚀 FORCE OPEN TERMINAL IMMEDIATELY
+  const forceOpenTerminal = () => {
+    if (!showTerminal) {
+      setIsTerminalOpening(true);
+      if (onToggleTerminal) {
+        onToggleTerminal();
+      } else {
+        setInternalShowTerminal(true);
+      }
+      // Reset opening state after a short delay
+      setTimeout(() => setIsTerminalOpening(false), 100);
+    }
+  };
+
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
   const getLanguageFromFilename = (filename: string): string => {
-    if (filename.endsWith('.js')) return 'javascript';
-    if (filename.endsWith('.ts')) return 'typescript';
-    if (filename.endsWith('.jsx')) return 'javascript';
-    if (filename.endsWith('.tsx')) return 'typescript';
-    if (filename.endsWith('.html')) return 'html';
-    if (filename.endsWith('.css')) return 'css';
-    if (filename.endsWith('.json')) return 'json';
-    if (filename.endsWith('.rs')) return 'rust';
-    return 'plaintext';
+    if (filename.endsWith(".js")) return "javascript";
+    if (filename.endsWith(".ts")) return "typescript";
+    if (filename.endsWith(".jsx")) return "javascript";
+    if (filename.endsWith(".tsx")) return "typescript";
+    if (filename.endsWith(".html")) return "html";
+    if (filename.endsWith(".css")) return "css";
+    if (filename.endsWith(".json")) return "json";
+    if (filename.endsWith(".rs")) return "rust";
+    if (filename.endsWith(".cpp")) return "cpp";
+    if (filename.endsWith(".c")) return "c";
+    if (filename.endsWith(".h")) return "c";
+    if (filename.endsWith(".ino")) return "cpp";
+    return "plaintext";
   };
 
   const handleEditorChange = (value: string | undefined) => {
     if (activeTab && value !== undefined) {
-      setEditorContent(prev => ({
+      setEditorContent((prev) => ({
         ...prev,
-        [activeTab.id]: value
+        [activeTab.id]: value,
       }));
       onContentChange?.(activeTab.id, value);
     }
@@ -72,161 +90,182 @@ const reset = () => setIsBuilding(false);
     e.stopPropagation();
     onTabClose(tabId);
   };
-useEffect(() => {
-  const handler = async () => {
-    if (!projectName) return;
+
+  /* ============================
+     🚀 UPDATED COMPILE HANDLER 
+     ============================ */
+  const handleCompile = async () => {
+    if (!projectName || isBuilding || isTerminalOpening) return;
 
     try {
-      toggleTerminal(); // open terminal automatically
+      // 1. OPEN TERMINAL IMMEDIATELY (BEFORE ANYTHING ELSE)
+      forceOpenTerminal();
+      
+      // 2. Start building state
+      setIsBuilding(true);
+      
+      // 3. Clear previous terminal output
+      window.dispatchEvent(new CustomEvent("terminal:clear"));
+      
+      // 4. Give terminal a moment to open and show initial message
+      setTimeout(() => {
+        const startTime = new Date();
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: `🚀 Starting ESP-IDF build for: ${projectName}`
+        }));
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: `⏰ Started at: ${startTime.toLocaleTimeString()}`
+        }));
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        }));
+      }, 50);
 
-      // Find the full path of the project
-    const projectPath: string = await invoke("get_project_path", { name: projectName });
-await invoke("build_project", { projectPath });
+      // 5. Resolve project path
+      const projectPath: string = await invoke("get_project_path", { name: projectName });
 
+      // 6. Send project info to terminal
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: `📁 Project: ${projectName}`
+        }));
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: `📂 Path: ${projectPath}`
+        }));
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        }));
+      }, 100);
 
-      // Optionally, show "Build Success" toast after completion
-      console.log("Build finished!");
-    } catch (err) {
-      console.error("Build failed", err);
+      // 7. Trigger build - this will stream to terminal via Tauri events
+      await invoke("build_project", { projectPath });
+
+      // 8. Show success message
+      setTimeout(() => {
+        const endTime = new Date();
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        }));
+        window.dispatchEvent(new CustomEvent("terminal:success", {
+          detail: `✅ ESP-IDF build completed successfully!`
+        }));
+      }, 100);
+
+      // 9. Trigger explorer refresh
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("refresh-project-files", {
+          detail: projectPath
+        }));
+      }, 1000);
+
+    } catch (err: any) {
+      console.error("Build failed:", err);
+      
+      // Show error in terminal
+      window.dispatchEvent(new CustomEvent("terminal:error", {
+        detail: `❌ Build failed: ${err.message || err}`
+      }));
+      
+      // Show ESP-IDF specific tips
+      if (err.message.includes("idf.py") || err.message.includes("ESP-IDF")) {
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: "💡 ESP-IDF Tips:"
+        }));
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: "   1. Make sure ESP-IDF is installed and sourced"
+        }));
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: "   2. Check if idf.py is in your PATH"
+        }));
+        window.dispatchEvent(new CustomEvent("terminal:info", {
+          detail: "   3. Verify your project configuration"
+        }));
+      }
+    } finally {
+      // Reset build state
+      setTimeout(() => setIsBuilding(false), 500);
     }
   };
 
-  window.addEventListener("compile-project", handler);
-  return () => window.removeEventListener("compile-project", handler);
-}, [projectName]);
-
-const handleCompile = async () => {
-  if (!projectName || isBuilding) return;
-
-  try {
-    startBuild();
-
-    // Clear previous terminal/logs
-    window.dispatchEvent(new CustomEvent("terminal:clear"));
-
-    // Resolve project path
-    const projectPath: string = await invoke("get_project_path", { name: projectName });
-
-    // Trigger build
-    await invoke("build_project", { projectPath });
-
-    finishSuccess();
-
-    // 🔔 Trigger refresh of project explorer
-    window.dispatchEvent(new CustomEvent("refresh-project-files", { detail: projectPath }));
-  } catch (err) {
-    console.error("Build failed:", err);
-    finishError();
-  } finally {
-    setTimeout(reset, 2000); // reset toast after 2s
-  }
-};
-
-  // Initialize content for new tabs
+  /* ============================
+     INIT CONTENT
+     ============================ */
   useEffect(() => {
-    tabs.forEach(tab => {
-      if (!editorContent[tab.id] && tab.content === undefined) {
-        setEditorContent(prev => ({
+    tabs.forEach((tab) => {
+      if (!editorContent[tab.id] && tab.content !== undefined) {
+        setEditorContent((prev) => ({
           ...prev,
-          [tab.id]: getDefaultContent(tab.name)
-        }));
-      } else if (tab.content !== undefined && editorContent[tab.id] === undefined) {
-        setEditorContent(prev => ({
-          ...prev,
-          [tab.id]: tab.content || getDefaultContent(tab.name)
+          [tab.id]: tab.content || `// ${tab.name}\n\n`,
         }));
       }
     });
   }, [tabs]);
 
   const getDefaultContent = (filename: string): string => {
-    if (filename.endsWith('.html')) {
-      return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${filename.replace('.html', '')}</title>
-</head>
-<body>
-    <h1>Welcome to ${filename}</h1>
-</body>
-</html>`;
+    if (filename.endsWith('.cpp') || filename.endsWith('.ino')) {
+      return `// ${filename}\n\nvoid setup() {\n    // Initialize your code here\n}\n\nvoid loop() {\n    // Main program loop\n}`;
     }
-    if (filename.endsWith('.css')) {
-      return `/* ${filename} - Stylesheet */\n\nbody {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n}`;
-    }
-    if (filename.endsWith('.js') || filename.endsWith('.jsx')) {
-      return `// ${filename}\n\nconsole.log('Hello from ${filename}');`;
-    }
-    if (filename.endsWith('.ts') || filename.endsWith('.tsx')) {
-      return `// ${filename}\n\ntype Props = {};\n\nexport default function ${filename.replace(/\.(tsx|ts)$/, '')}() {\n    return (\n        <div>\n            <h1>${filename}</h1>\n        </div>\n    );\n}`;
-    }
-    return `// ${filename}\n\n// Start coding here...`;
+    return `// ${filename}\n\n`;
   };
 
-  // Calculate editor height based on terminal visibility
-  const editorHeight = showTerminal ? '70%' : '100%';
-  const terminalHeight = '30%';
+  const editorHeight = showTerminal ? "70%" : "100%";
+  const terminalHeight = "30%";
 
   return (
     <div className="h-full flex flex-col">
-      {/* Project header with tabs */}
+      {/* Header */}
       <div className="bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
-        {/* Project title with terminal toggle */}
-        <div className="px-4 py-2 border-b border-gray-300 dark:border-gray-700 flex items-center justify-between">
-         
+        {/* Toolbar with buttons */}
+        <div className="px-4 py-2 flex justify-between items-center border-b border-gray-300 dark:border-gray-700">
+          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {projectName}
+          </div>
           
-          {/* Terminal toggle button */}
-          <button
-            onClick={toggleTerminal}
-            className={`flex items-center gap-2 px-3 py-1 rounded text-sm ${
-              showTerminal
-                ? theme === "dark"
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-500 text-white"
-                : theme === "dark"
-                  ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-            title={showTerminal ? "Hide Terminal" : "Show Terminal"}
-          >
-            <IconTerminal2 size={16} />
-            <span>Terminal</span>
-          </button>
-        <button
-  onClick={async () => {
-    if (!projectName) return;
-
-    try {
-      // 1. Open terminal
-      if (!showTerminal) toggleTerminal();
-
-      // 2. Clear previous logs
-      window.dispatchEvent(new CustomEvent("terminal:clear"));
-
-      // 3. Resolve project path
-      const projectPath: string = await invoke("get_project_path", {
-        name: projectName,
-      });
-
-      // 4. Start build (ONLY ONCE)
-      await invoke("build_project", { projectPath });
-    } catch (err) {
-      console.error("Build failed:", err);
-    }
-  }}
-  className="px-3 py-1 rounded bg-green-600 hover:bg-green-500 text-white text-xs font-medium"
->
-  Compile
-</button>
-
-
-
+          <div className="flex items-center gap-3">
+            {/* Terminal toggle button */}
+            <button
+              onClick={toggleTerminal}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm ${
+                showTerminal
+                  ? theme === "dark"
+                    ? "bg-blue-600 text-white"
+                    : "bg-blue-500 text-white"
+                  : theme === "dark"
+                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+              title={showTerminal ? "Hide Terminal" : "Show Terminal"}
+            >
+              <IconTerminal2 size={16} />
+              <span>Terminal</span>
+            </button>
+            
+            {/* Compile button */}
+            <button
+              onClick={handleCompile}
+              disabled={isBuilding || isTerminalOpening}
+              className={`px-4 py-1.5 rounded text-sm font-medium flex items-center gap-2 ${
+                isBuilding || isTerminalOpening
+                  ? "bg-yellow-600 text-white cursor-wait"
+                  : "bg-green-600 hover:bg-green-500 text-white"
+              }`}
+            >
+              {isBuilding || isTerminalOpening ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>{isTerminalOpening ? "Opening Terminal..." : "Building..."}</span>
+                </>
+              ) : (
+                <>
+                  <IconPlayerPlay size={14} />
+                  <span>Compile</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
-      
 
-        {/* File tabs */}
+        {/* Tabs */}
         <div className="flex overflow-x-auto">
           {tabs.map((tab) => (
             <div
@@ -252,7 +291,6 @@ const handleCompile = async () => {
             </div>
           ))}
           
-          {/* Empty state */}
           {tabs.length === 0 && (
             <div className="px-4 py-2 text-gray-500 dark:text-gray-400 italic">
               No files open
@@ -261,9 +299,9 @@ const handleCompile = async () => {
         </div>
       </div>
 
-      {/* Main content area (Editor + Terminal) */}
-      <div className="flex-1 flex flex-col">
-        {/* Monaco Editor - Dynamic height based on terminal visibility */}
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Editor */}
         <div style={{ height: editorHeight, minHeight: '0' }}>
           {activeTab ? (
             <Editor
@@ -291,12 +329,14 @@ const handleCompile = async () => {
           )}
         </div>
 
-        {/* Terminal - Only shown when toggled */}
+        {/* Terminal */}
         {showTerminal && (
           <div style={{ height: terminalHeight, minHeight: '0' }}>
-            <TerminalWrapper
-              theme={theme}
-              onClose={toggleTerminal}
+            <TerminalWrapper 
+              theme={theme} 
+              onClose={toggleTerminal} 
+              projectPath={projectName} 
+              isBuilding={isBuilding}
             />
           </div>
         )}

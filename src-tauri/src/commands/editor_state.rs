@@ -17,7 +17,7 @@ pub struct EditorTab {
     pub path: String,
     pub content: String,
     pub saved: bool,
-    pub tab_type: String, // "file" or "postman"
+    pub tab_type: String, 
 }
 
 fn get_state_file() -> PathBuf {
