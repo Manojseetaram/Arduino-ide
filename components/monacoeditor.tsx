@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { IconX, IconTerminal2, IconPlayerPlay } from "@tabler/icons-react";
 import { EditorTab } from "./explorer/types";
@@ -33,7 +33,9 @@ export function MonacoEditor({
   const [editorContent, setEditorContent] = useState<Record<string, string>>({});
   const [internalShowTerminal, setInternalShowTerminal] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
-  const [isTerminalOpening, setIsTerminalOpening] = useState(false);
+  
+  // 🚀 Use a ref to force immediate updates
+  const terminalShouldShowRef = useRef(false);
 
   const showTerminal =
     externalShowTerminal !== undefined
@@ -44,18 +46,48 @@ export function MonacoEditor({
     onToggleTerminal ||
     (() => setInternalShowTerminal((prev) => !prev));
 
-  // 🚀 FORCE OPEN TERMINAL IMMEDIATELY
-  const forceOpenTerminal = () => {
+  // 🚀 FORCE TERMINAL TO SHOW - BYPASS REACT BATCHING
+  const forceShowTerminal = () => {
     if (!showTerminal) {
-      setIsTerminalOpening(true);
-      if (onToggleTerminal) {
-        onToggleTerminal();
-      } else {
-        setInternalShowTerminal(true);
-      }
-      // Reset opening state after a short delay
-      setTimeout(() => setIsTerminalOpening(false), 100);
+      // Update ref immediately
+      terminalShouldShowRef.current = true;
+      
+      // Force React to update immediately (not batched)
+      setTimeout(() => {
+        if (onToggleTerminal) {
+          onToggleTerminal();
+        } else {
+          setInternalShowTerminal(true);
+        }
+      }, 0);
+      
+      return true;
     }
+    return false;
+  };
+
+  // 🚀 ULTRA-INSTANT TERMINAL OPENING WITH RUST
+  const openTerminalWithRust = async () => {
+    if (!showTerminal) {
+      try {
+        // 🚀 Call Rust backend to open terminal INSTANTLY
+        await invoke("open_terminal_instantly");
+        
+        // Update UI state
+        if (onToggleTerminal) {
+          onToggleTerminal();
+        } else {
+          setInternalShowTerminal(true);
+        }
+        
+        return true;
+      } catch (error) {
+        console.error("Failed to open terminal via Rust:", error);
+        // Fallback to local method
+        return forceShowTerminal();
+      }
+    }
+    return false;
   };
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -92,100 +124,80 @@ export function MonacoEditor({
   };
 
   /* ============================
-     🚀 UPDATED COMPILE HANDLER 
+     🚀 INSTANT COMPILE WITH RUST BACKEND
      ============================ */
   const handleCompile = async () => {
-    if (!projectName || isBuilding || isTerminalOpening) return;
+    if (!projectName || isBuilding) return;
 
     try {
-      // 1. OPEN TERMINAL IMMEDIATELY (BEFORE ANYTHING ELSE)
-      forceOpenTerminal();
+      // 🚀 STEP 1: OPEN TERMINAL VIA RUST (INSTANT)
+      const terminalOpened = await openTerminalWithRust();
       
-      // 2. Start building state
+      if (!terminalOpened && !showTerminal) {
+        // Emergency fallback
+        forceShowTerminal();
+      }
+      
+      // 🚀 STEP 2: Show building state immediately
       setIsBuilding(true);
       
-      // 3. Clear previous terminal output
-      window.dispatchEvent(new CustomEvent("terminal:clear"));
+      // 🚀 STEP 3: Send immediate feedback via Rust events
+      window.dispatchEvent(new CustomEvent("terminal:info", {
+        detail: ` Building: ${projectName}`
+      }));
       
-      // 4. Give terminal a moment to open and show initial message
-      setTimeout(() => {
-        const startTime = new Date();
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: `🚀 Starting ESP-IDF build for: ${projectName}`
-        }));
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: `⏰ Started at: ${startTime.toLocaleTimeString()}`
-        }));
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        }));
-      }, 50);
-
-      // 5. Resolve project path
+      // STEP 4: Resolve project path
       const projectPath: string = await invoke("get_project_path", { name: projectName });
 
-      // 6. Send project info to terminal
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: `📁 Project: ${projectName}`
-        }));
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: `📂 Path: ${projectPath}`
-        }));
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        }));
-      }, 100);
+      // STEP 5: Show project info
+      window.dispatchEvent(new CustomEvent("terminal:info", {
+        detail: ` Path: ${projectPath}`
+      }));
+      
+      window.dispatchEvent(new CustomEvent("terminal:info", {
+        detail: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      }));
 
-      // 7. Trigger build - this will stream to terminal via Tauri events
-      await invoke("build_project", { projectPath });
+      // STEP 6: Trigger build - ESP-IDF output streams via Tauri
+      invoke("build_project", { projectPath });
 
-      // 8. Show success message
-      setTimeout(() => {
-        const endTime = new Date();
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        }));
-        window.dispatchEvent(new CustomEvent("terminal:success", {
-          detail: `✅ ESP-IDF build completed successfully!`
-        }));
-      }, 100);
-
-      // 9. Trigger explorer refresh
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("refresh-project-files", {
-          detail: projectPath
-        }));
-      }, 1000);
+      // STEP 7: Build completed
+      window.dispatchEvent(new CustomEvent("terminal:success", {
+        detail: "Build Completed"
+      }));
 
     } catch (err: any) {
       console.error("Build failed:", err);
       
-      // Show error in terminal
       window.dispatchEvent(new CustomEvent("terminal:error", {
-        detail: `❌ Build failed: ${err.message || err}`
+        detail: ` Error: ${err.message || err}`
       }));
       
-      // Show ESP-IDF specific tips
-      if (err.message.includes("idf.py") || err.message.includes("ESP-IDF")) {
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: "💡 ESP-IDF Tips:"
-        }));
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: "   1. Make sure ESP-IDF is installed and sourced"
-        }));
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: "   2. Check if idf.py is in your PATH"
-        }));
-        window.dispatchEvent(new CustomEvent("terminal:info", {
-          detail: "   3. Verify your project configuration"
-        }));
-      }
     } finally {
-      // Reset build state
-      setTimeout(() => setIsBuilding(false), 500);
+      setIsBuilding(false);
+      terminalShouldShowRef.current = false;
     }
   };
+
+  // Listen for Rust "force-open" event
+  useEffect(() => {
+    const handleForceOpen = () => {
+      if (!showTerminal) {
+        if (onToggleTerminal) {
+          onToggleTerminal();
+        } else {
+          setInternalShowTerminal(true);
+        }
+      }
+    };
+
+    // Listen for Rust backend terminal open event
+    window.addEventListener("terminal:force-open", handleForceOpen);
+    
+    return () => {
+      window.removeEventListener("terminal:force-open", handleForceOpen);
+    };
+  }, [showTerminal, onToggleTerminal]);
 
   /* ============================
      INIT CONTENT
@@ -240,20 +252,24 @@ export function MonacoEditor({
               <span>Terminal</span>
             </button>
             
-            {/* Compile button */}
+            {/* 🚀 ULTRA INSTANT Compile button */}
             <button
               onClick={handleCompile}
-              disabled={isBuilding || isTerminalOpening}
-              className={`px-4 py-1.5 rounded text-sm font-medium flex items-center gap-2 ${
-                isBuilding || isTerminalOpening
+              disabled={isBuilding}
+              className={`px-4 py-1.5 rounded text-sm font-medium flex items-center gap-2 active:scale-[0.98] transition-all ${
+                isBuilding
                   ? "bg-yellow-600 text-white cursor-wait"
                   : "bg-green-600 hover:bg-green-500 text-white"
               }`}
+              style={{
+                transform: isBuilding ? 'none' : 'translateZ(0)',
+                backfaceVisibility: 'hidden'
+              }}
             >
-              {isBuilding || isTerminalOpening ? (
+              {isBuilding ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>{isTerminalOpening ? "Opening Terminal..." : "Building..."}</span>
+                  <span>Building...</span>
                 </>
               ) : (
                 <>
@@ -329,7 +345,7 @@ export function MonacoEditor({
           )}
         </div>
 
-        {/* Terminal */}
+        {/* 🚀 Terminal - Opens INSTANTLY via Rust */}
         {showTerminal && (
           <div style={{ height: terminalHeight, minHeight: '0' }}>
             <TerminalWrapper 

@@ -32,8 +32,8 @@ fn main() {
             commands::explorer::create_file,
             commands::editor_state::save_file,
             commands::explorer::delete_path,
-            commands::explorer::rename_path
-        
+            commands::explorer::rename_path,
+            commands::build::open_terminal_instantly
         ])
         .run(tauri::generate_context!())
         .expect("error running tauri app");
