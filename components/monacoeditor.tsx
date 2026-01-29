@@ -279,29 +279,39 @@ export function MonacoEditor({
         <div className="flex overflow-x-auto">
           {tabs.map((tab) => (
             <div
-              key={tab.id}
-              className={`
-                flex items-center gap-2 px-4 py-2 border-r border-gray-300 dark:border-gray-700
-                min-w-[160px] max-w-[200px] cursor-pointer whitespace-nowrap
-                ${activeTabId === tab.id 
-                  ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400' 
-                  : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
-                }
-              `}
-              onClick={() => onTabSelect(tab.id)}
-            >
+  key={tab.id}
+  className={`
+    group flex items-center gap-2 px-4 py-2 border-r border-gray-300 dark:border-gray-700
+    min-w-[160px] max-w-[200px] cursor-pointer whitespace-nowrap
+    ${activeTabId === tab.id 
+      ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400' 
+      : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
+    }
+  `}
+  onClick={() => onTabSelect(tab.id)}
+>
+
               <div className="flex items-center gap-2 flex-1 truncate">
   {getTabIcon(tab.name)}
   <span className="truncate">{tab.name}</span>
 </div>
 
               {!tab.saved && <span className="w-2 h-2 rounded-full bg-yellow-500"></span>}
-              <button
-                onClick={(e) => handleTabClose(e, tab.id)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-              >
-                <IconX size={14} />
-              </button>
+            <button
+  onClick={(e) => handleTabClose(e, tab.id)}
+  className={`
+    p-1 rounded transition
+    ${
+      activeTabId === tab.id
+        ? "opacity-100"
+        : "opacity-0 group-hover:opacity-100"
+    }
+    hover:bg-gray-200 dark:hover:bg-gray-600
+  `}
+>
+  <IconX size={14} />
+</button>
+
             </div>
           ))}
           
