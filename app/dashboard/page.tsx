@@ -86,16 +86,8 @@ useEffect(() => {
           );
           console.log(`[LOG] list_project_files returned ${children.length} nodes for project: ${proj.name}`);
 
-          filesState[proj.name] = [
-            {
-              id: proj.name,
-              name: proj.name,
-              type: "folder",
-              path: proj.path,
-              children,
-              isOpen: false
-            },
-          ];
+        filesState[proj.name] = children; // children already includes the project root
+
         } catch (err) {
           console.error(`[ERROR] Failed to load files for project ${proj.name}:`, err);
         }
@@ -132,8 +124,9 @@ const addProject = async (name: string) => {
       children,
       isOpen: false
     };
+    
+setProjectFiles(prev => ({ ...prev, [name]: children })); // children already has root node
 
-    setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
     setProjects(prev => [...prev, { name, path: projectPath }]);
 
     const updatedRecent = [{ name, path: projectPath }, ...recentProjects.filter(p => p.name !== name)].slice(0, 5);
