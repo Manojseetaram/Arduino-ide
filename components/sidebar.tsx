@@ -104,55 +104,57 @@ const handleCreateNode = useCallback(async () => {
       ? `${tempName}.cpp`
       : tempName;
 
-  // ✅ parent is ALWAYS relative ("", "src", "src/utils")
-  const parent = selectedFolderId ?? "";
+  // ✅ find parent node by ID
+  const findNodeById = (nodes: ExplorerNode[], id: string): ExplorerNode | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      if (node.children) {
+        const found = findNodeById(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
 
-  // ✅ build relative path
-  const relativePath = parent ? `${parent}/${finalName}` : finalName;
+  // ✅ parent path = folder path OR project root path
+  const parentNode = selectedFolderId
+    ? findNodeById(files, selectedFolderId)
+    : files[0]; // project root
+
+  if (!parentNode) {
+    console.error("Parent folder not found");
+    return;
+  }
+
+  const fullPath = `${parentNode.path}/${finalName}`;
 
   try {
     await invoke(
       creating === "folder" ? "create_folder" : "create_file",
-      {
-        projectName: currentProject,
-        relativePath,
-      }
+      { fullPath }
     );
 
-    const absolutePath = `/Users/manojseetaramgowda/esp-projects/${currentProject}/${relativePath}`;
+    const newNode: ExplorerNode = {
+      id: fullPath,          // ✅ ID = path (simple & safe)
+      name: finalName,
+      type: creating,
+      path: fullPath,
+      children: creating === "folder" ? [] : undefined,
+    };
 
-const newNode: ExplorerNode = {
-  id: relativePath,
-  name: finalName,
-  type: creating,
-  path: absolutePath,          // ✅ THIS FIXES read_file
-  children: creating === "folder" ? [] : undefined,
-
-};
-
-
-    const insert = (nodes: ExplorerNode[]): ExplorerNode[] => {
-      // root insert
-      if (parent === "") return [...nodes, newNode];
-
-      return nodes.map(node => {
-        if (node.id === parent && node.type === "folder") {
+    const insert = (nodes: ExplorerNode[]): ExplorerNode[] =>
+      nodes.map(node => {
+        if (node.id === parentNode.id && node.type === "folder") {
           return {
             ...node,
             children: [...(node.children || []), newNode],
           };
         }
-
         if (node.children) {
-          return {
-            ...node,
-            children: insert(node.children),
-          };
+          return { ...node, children: insert(node.children) };
         }
-
         return node;
       });
-    };
 
     setFiles(prev => insert(prev));
   } catch (e) {
@@ -161,7 +163,7 @@ const newNode: ExplorerNode = {
 
   setCreating(null);
   setTempName("");
-}, [tempName, creating, selectedFolderId, currentProject]);
+}, [tempName, creating, selectedFolderId, currentProject, files]);
 
  
  

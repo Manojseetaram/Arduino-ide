@@ -86,43 +86,35 @@ pub fn read_file(path: String) -> Result<String, String> {
 }
 
 
-#[command]
-pub fn create_folder(project_name: String, relative_path: String) -> Result<String, String> {
-    let home = dirs::home_dir().ok_or("No home dir")?;
-    let base = home.join("esp-projects").join(project_name);
-
-    let folder_path = base.join(relative_path);
-
-    if folder_path.exists() {
-        return Err("Folder already exists".into());
-    }
-
-    std::fs::create_dir_all(&folder_path)
-        .map_err(|e| e.to_string())?;
-
-    Ok(format!("Folder created: {}", folder_path.display()))
-}
-
 
 #[command]
+pub fn create_file(full_path: String) -> Result<String, String> {
+    let path = std::path::Path::new(&full_path);
 
-pub fn create_file(project_name: String, relative_path: String) -> Result<String, String> {
-    let home = dirs::home_dir().ok_or("No home dir")?;
-    let base = home.join("esp-projects").join(project_name);
-
-    let file_path = base.join(relative_path);
-
-    if file_path.exists() {
+    if path.exists() {
         return Err("File already exists".into());
     }
 
-    std::fs::create_dir_all(file_path.parent().unwrap())
-        .map_err(|e| e.to_string())?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
 
-    std::fs::File::create(&file_path)
-        .map_err(|e| e.to_string())?;
+    std::fs::File::create(path).map_err(|e| e.to_string())?;
 
-    Ok(format!("Created: {}", file_path.display()))
+    Ok(format!("Created: {}", path.display()))
+}
+
+#[command]
+pub fn create_folder(full_path: String) -> Result<String, String> {
+    let path = std::path::Path::new(&full_path);
+
+    if path.exists() {
+        return Err("Folder already exists".into());
+    }
+
+    std::fs::create_dir_all(path).map_err(|e| e.to_string())?;
+
+    Ok(format!("Folder created: {}", path.display()))
 }
 
 #[command]

@@ -12,7 +12,7 @@ use tauri::{CustomMenuItem, Menu, MenuItem, Submenu , Manager};
 use uuid::Uuid;
 fn main() {
     
-    let new_project = CustomMenuItem::new("new_project".to_string(), "New Project");
+    let new_project = CustomMenuItem::new("new_project".to_string(), "New Window");
     let open_project = CustomMenuItem::new("open_project".to_string(), "Open Project");
     let quit = CustomMenuItem::new("quit".to_string(), "Quit");
 
@@ -78,7 +78,7 @@ fn main() {
 "new_project" => {
     let window_label = format!("dashboard-{}", Uuid::new_v4());
     tauri::WindowBuilder::new(
-        
+
         &event.window().app_handle(),
         window_label,
         tauri::WindowUrl::App("/dashboard".into()),
