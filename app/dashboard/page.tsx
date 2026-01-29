@@ -416,101 +416,114 @@ const handleContentChange = useCallback(
         onOpenPostman={openPostmanTab}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {!currentProject ? (
-          <div className="h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-white p-8">
-            <div className="max-w-2xl w-full">
-              {/* Header Section */}
-              <div className="text-center mb-12">
-                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border border-blue-200 text-blue-600 flex items-center justify-center text-4xl mb-6">
-                  <IconFolderPlus size={40} />
-                </div>
-
-                <h1 className="text-3xl font-bold text-gray-800 mb-3">
-                  Welcome to <span className="text-blue-600">Arduino IDE+</span>
-                </h1>
-                <p className="text-lg text-gray-600 mb-8">
-                  Create your next Arduino project with a powerful, modern development environment.
-                </p>
-
-                {/* Action Buttons */}
-                <div className="flex gap-4 justify-center mb-12">
-                  <button
-                    onClick={() => setShowCreate(true)}
-                    className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow hover:shadow-lg flex items-center gap-2"
-                  >
-                    <IconPlus size={20} />
-                    Create New Project
-                  </button>
-
-                  <button className="px-8 py-3 bg-white border border-gray-300 text-gray-700 text-lg font-semibold rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2">
-                    <IconSettings size={20} />
-                    Open Existing
-                  </button>
-                </div>
-              </div>
-
-              {/* Recent Projects Section */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <IconClock className="text-gray-500" size={20} />
-                  <h2 className="text-xl font-semibold text-gray-800">Recent Projects</h2>
-                </div>
-
-                {recentProjects.length > 0 ? (
-                  <div className="space-y-2">
-                    {recentProjects.slice(0, 5).map(p => (
-                      <button
-                        key={p.name}
-                        onClick={() => handleSelectProject(p.name, p.path)}
-                        className="w-full flex items-center gap-3 px-3 py-3 hover:bg-gray-50 rounded-md transition-colors text-left group"
-                      >
-                        <IconFolder className="text-blue-500 group-hover:text-blue-600" size={18} />
-                        <span className="font-medium text-gray-700 group-hover:text-blue-600">
-                          {p.name}
-                        </span>
-                        <span className="text-sm text-gray-500 truncate ml-auto">
-                          {p.path.split('/').pop()}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-gray-500">
-                    <IconFolder className="mx-auto mb-2 text-gray-400" size={24} />
-                    <p>No recent projects found</p>
-                  </div>
-                )}
-              </div>
-            </div>
+<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+  {!currentProject ? (
+    <div className="h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-white p-8">
+      <div className="max-w-6xl w-full">
+        {/* Header - Full width */}
+        <div className="text-center mb-12">
+          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border border-blue-200 text-blue-600 flex items-center justify-center mb-6">
+            <IconFolderPlus size={40} />
           </div>
-        ) : isPostmanTab ? (
-          <PostmanEditor
-            projectName={currentProject}
-            theme={theme}
-            tabs={currentTabs}
-            activeTabId={currentActiveTabId}
-            onTabSelect={handleTabSelect}
-            onTabClose={handleTabClose}
-            showTerminal={currentShowTerminal}
-            onToggleTerminal={handleToggleTerminal}
-          />
-        ) : (
-          <MonacoEditor
-            projectName={currentProject}
-            theme={theme}
-            tabs={currentTabs}
-            activeTabId={currentActiveTabId}
-            onTabSelect={handleTabSelect}
-            onTabClose={handleTabClose}
-            onContentChange={handleContentChange}
-            showTerminal={currentShowTerminal}
-            onToggleTerminal={handleToggleTerminal}
-          />
-        )}
 
-        {showCreate && <CreateProjectModal onClose={() => setShowCreate(false)} onCreate={addProject} />}
+          <h1 className="text-3xl font-bold text-gray-800 mb-3">
+            Welcome to <span className="text-blue-600">Arduino IDE+</span>
+          </h1>
+
+          <p className="text-lg text-gray-600">
+            Create your next Arduino project with a powerful, modern development environment.
+          </p>
+        </div>
+
+       
+        <div className="flex gap-8">
+  {/* LEFT SIDE — Create Project */}
+  <div className="w-72 space-y-6">
+    <button
+      onClick={() => setShowCreate(true)}
+      className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow hover:shadow-lg flex items-center justify-center gap-3"
+    >
+      <IconPlus size={22} />
+      Create New Project
+    </button>
+  </div>
+
+  {/* RIGHT SIDE — Recent Projects */}
+  <div className="flex-1">
+    <div className="flex items-center gap-3 mb-6">
+      <h2 className="text-md font-bold text-gray-800">
+        Recent Projects
+      </h2>
+    </div>
+
+    {recentProjects.length > 0 ? (
+      <div className="space-y-3">
+        {recentProjects.slice(0, 5).map(p => (
+          <button
+            key={p.name}
+            onClick={() => handleSelectProject(p.name, p.path)}
+            className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-50 rounded-lg transition-colors text-left group border border-transparent hover:border-gray-200"
+          >
+            <IconFolder size={10} />
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold text-sm text-gray-800 group-hover:text-blue-600 block truncate">
+                {p.name}
+              </span>
+              <span className="text-sm text-gray-500 truncate block">
+                {p.path}
+              </span>
+            </div>
+          </button>
+        ))}
       </div>
+    ) : (
+      <div className="text-center py-10">
+        <IconFolder className="mx-auto text-gray-400 mb-4" size={32} />
+        <h3 className="text-lg font-medium text-gray-700 mb-2">
+          No recent projects
+        </h3>
+        <p className="text-gray-500 mb-6">
+          Create your first project to get started
+        </p>
+      </div>
+    )}
+  </div>
+</div>
+
+      </div>
+    </div>
+  ) : isPostmanTab ? (
+    <PostmanEditor
+      projectName={currentProject}
+      theme={theme}
+      tabs={currentTabs}
+      activeTabId={currentActiveTabId}
+      onTabSelect={handleTabSelect}
+      onTabClose={handleTabClose}
+      showTerminal={currentShowTerminal}
+      onToggleTerminal={handleToggleTerminal}
+    />
+  ) : (
+    <MonacoEditor
+      projectName={currentProject}
+      theme={theme}
+      tabs={currentTabs}
+      activeTabId={currentActiveTabId}
+      onTabSelect={handleTabSelect}
+      onTabClose={handleTabClose}
+      onContentChange={handleContentChange}
+      showTerminal={currentShowTerminal}
+      onToggleTerminal={handleToggleTerminal}
+    />
+  )}
+
+  {showCreate && (
+    <CreateProjectModal
+      onClose={() => setShowCreate(false)}
+      onCreate={addProject}
+    />
+  )}
+</div>
     </div>
   );
 }
