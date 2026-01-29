@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [theme] = useState<"light" | "dark">("light");
   const [showCreate, setShowCreate] = useState(false);
+const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [editorTabs, setEditorTabs] = useState<Record<string, EditorTab[]>>({});
   const [activeTabId, setActiveTabId] = useState<Record<string, string | null>>({});
@@ -64,6 +65,11 @@ const uniqueProjectNames = Array.from(
     };
     loadEditorState();
   }, []);
+useEffect(() => {
+  if (!currentProject) {
+    setIsSidebarOpen(false);
+  }
+}, [currentProject]);
 
 // ---------------- Load projects ----------------
 useEffect(() => {
@@ -138,6 +144,7 @@ setProjectFiles(prev => ({ ...prev, [name]: children })); // children already ha
     setActiveTabId(prev => ({ ...prev, [name]: null }));
     setShowTerminal(prev => ({ ...prev, [name]: false }));
     setCurrentProject(name);
+    setIsSidebarOpen(true); // 👈 OPEN sidebar
     setShowCreate(false);
   } catch (err) {
     console.error("[ERROR] addProject failed:", err);
@@ -170,6 +177,7 @@ const updateFolderChildren = useCallback(
 const handleSelectProject = useCallback(
   async (name: string, path: string) => {
     setCurrentProject(name);
+    setIsSidebarOpen(true); // 👈 OPEN sidebar
 
     if (!projectFiles[name]) {
       try {
@@ -395,26 +403,29 @@ const handleContentChange = useCallback(
 
   return (
     <div className="flex h-screen w-screen bg-gray-50 overflow-hidden">
-     <Sidebar
+    <Sidebar
   projects={uniqueProjectNames}
   currentProject={currentProject}
+  isOpen={isSidebarOpen}               // ✅ controlled
+  onToggle={() => setIsSidebarOpen(prev => !prev)} // ✅ toggle button works
   onSelectProject={(name) => {
     const proj = projects.find(p => p.name === name) || recentProjects.find(p => p.name === name);
     if (proj) handleSelectProject(proj.name, proj.path);
   }}
-        theme={theme}
-        files={currentFiles}
-        setFiles={(value) => {
-          if (!currentProject) return;
-          setProjectFiles(prev => ({
-            ...prev,
-            [currentProject]: typeof value === "function" ? value(prev[currentProject] ?? []) : value,
-          }));
-        }}
-        onFileSelect={handleFileSelect}
-        activeFileId={null}
-        onOpenPostman={openPostmanTab}
-      />
+  theme={theme}
+  files={currentFiles}
+  setFiles={(value) => {
+    if (!currentProject) return;
+    setProjectFiles(prev => ({
+      ...prev,
+      [currentProject]: typeof value === "function" ? value(prev[currentProject] ?? []) : value,
+    }));
+  }}
+  onFileSelect={handleFileSelect}
+  activeFileId={null}
+  onOpenPostman={openPostmanTab}
+/>
+
 
 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
   {!currentProject ? (

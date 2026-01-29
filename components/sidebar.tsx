@@ -26,6 +26,8 @@ import { fetchProjectFiles } from "@/lib/tauriApi";
 import { listen } from "@tauri-apps/api/event";
 
 export function Sidebar({
+  isOpen,
+  onToggle,
   projects,
   currentProject,
   onSelectProject,
@@ -35,8 +37,9 @@ export function Sidebar({
   onFileSelect,
   activeFileId,
   onOpenPostman,
-}: SidebarProps & { onOpenPostman?: () => void }) {
-  const [isOpen, setIsOpen] = useState(true);
+}: SidebarProps & { isOpen: boolean; onToggle: () => void; onOpenPostman?: () => void }) {
+ {
+  
   const [panel, setPanel] = useState<"explorer" | "search" | "extensions">("explorer");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [creating, setCreating] = useState<"file" | "folder" | null>(null);
@@ -194,16 +197,20 @@ const handleCreateNode = useCallback(async () => {
 };
 
 
-  const handlePanelClick = useCallback((newPanel: "explorer" | "search" | "extensions") => {
+  const handlePanelClick = useCallback(
+  (newPanel: "explorer" | "search" | "extensions") => {
     if (!isOpen) {
-      setIsOpen(true);
+      onToggle(); // open sidebar if closed
       setPanel(newPanel);
     } else if (panel === newPanel) {
-      setIsOpen(false);
+      onToggle(); // toggle close if same panel
     } else {
-      setPanel(newPanel);
+      setPanel(newPanel); // switch panel if different
     }
-  }, [isOpen, panel]);
+  },
+  [isOpen, panel, onToggle]
+);
+
 
   const handlePostmanClick = useCallback(() => {
     if (onOpenPostman) onOpenPostman();
@@ -283,14 +290,18 @@ const renderPanel = () => {
    <div className="flex h-screen">
   {/* Left Icon Bar */}
   <div className="w-12 flex flex-col items-center bg-gray-50 py-2">
-    <SidebarIcon
-      onClick={() => setIsOpen(!isOpen)}
-      tooltip={isOpen ? "Close Sidebar" : "Open Sidebar"}
-    >
-      {isOpen ? <IconLayoutSidebarLeftCollapse size={18} /> : <IconLayoutSidebarLeftExpand size={18} />}
-    </SidebarIcon>
+   <SidebarIcon
+  onClick={onToggle}
+  tooltip={isOpen ? "Close Sidebar" : "Open Sidebar"}
+  
+>
+  {isOpen ? <IconLayoutSidebarLeftCollapse size={18} /> : <IconLayoutSidebarLeftExpand size={18} />}
+  </SidebarIcon>
+
+
 
     <div className="flex-1 flex flex-col items-center pt-4 space-y-1">
+       
       <SidebarIcon
         active={panel === "explorer"}
         onClick={() => handlePanelClick("explorer")}
@@ -346,4 +357,5 @@ const renderPanel = () => {
 </div>
 
   );
+}
 }
