@@ -1,77 +1,35 @@
 // components/explorer/utils.ts
 import {
-  IconBrandCpp,
-  IconBrandCss3,
-  IconFileTypeTsx,
-  IconFileTypeJsx,
-  IconFileTypeJs,
-  IconFileTypeHtml,
-  IconFileCode,
-  IconFileTypeTs,
-  IconFile,
-  IconFileText,
-  IconSettings,
-  IconBinary,
-  IconFileTypeTxt,
-  IconFileTypeXml,
-  IconFileTypeCsv,
-  IconFileTypeDoc,
-  IconFileTypePdf,
-  IconDeviceCctv,
+IconBrandCpp,
+IconFile,
+IconFileText,
+IconSettings,
+IconBinary,
+
 } from "@tabler/icons-react";
 import React from "react";
 import { ExplorerNode, SearchResult } from "./types";
+import { CIcon } from "../icons/CIcon";
 
-/* ========= FILE ICONS FOR C/C++ & ESP-IDF ========= */
+/* ========= FILE ICONS (C LANGUAGE ONLY) ========= */
 const fileIcons: Record<string, React.ReactNode> = {
-  // C/C++ Files
-  '.c': React.createElement(IconBrandCpp, { size: 16 }),
-  '.cpp': React.createElement(IconBrandCpp, { size: 16 }),
-  '.cc': React.createElement(IconBrandCpp, { size: 16 }),
-  '.cxx': React.createElement(IconBrandCpp, { size: 16 }),
-  '.h': React.createElement(IconBrandCpp, { size: 16 }),
-  '.hpp': React.createElement(IconBrandCpp, { size: 16 }),
-  '.hxx': React.createElement(IconBrandCpp, { size: 16 }),
-  
-  // Arduino Files
-  '.ino': React.createElement(IconDeviceCctv, { size: 16 }),
-  '.pde': React.createElement(IconDeviceCctv, { size: 16 }),
-  
-  // ESP-IDF Specific
-  '.cmake': React.createElement(IconSettings, { size: 16 }),
-  '.mk': React.createElement(IconSettings, { size: 16 }),
-  '.make': React.createElement(IconSettings, { size: 16 }),
-  '.ld': React.createElement(IconBinary, { size: 16 }),
-  '.s': React.createElement(IconBinary, { size: 16 }),
-  '.asm': React.createElement(IconBinary, { size: 16 }),
-  '.inc': React.createElement(IconBinary, { size: 16 }),
-  
-  // Configuration files
-  '.json': React.createElement(IconFileCode, { size: 16 }),
-  '.yaml': React.createElement(IconFileText, { size: 16 }),
-  '.yml': React.createElement(IconFileText, { size: 16 }),
-  '.toml': React.createElement(IconFileText, { size: 16 }),
-  '.ini': React.createElement(IconSettings, { size: 16 }),
-  '.cfg': React.createElement(IconSettings, { size: 16 }),
-  '.conf': React.createElement(IconSettings, { size: 16 }),
-  
-  // Text files
-  '.txt': React.createElement(IconFileTypeTxt, { size: 16 }),
-  '.md': React.createElement(IconFileText, { size: 16 }),
-  '.rst': React.createElement(IconFileText, { size: 16 }),
-  
-  // Other files
-  '.css': React.createElement(IconBrandCss3, { size: 16 }),
-  '.tsx': React.createElement(IconFileTypeTsx, { size: 16 }),
-  '.jsx': React.createElement(IconFileTypeJsx, { size: 16 }),
-  '.js': React.createElement(IconFileTypeJs, { size: 16 }),
-  '.html': React.createElement(IconFileTypeHtml, { size: 16 }),
-  '.ts': React.createElement(IconFileTypeTs, { size: 16 }),
-  '.xml': React.createElement(IconFileTypeXml, { size: 16 }),
-  '.csv': React.createElement(IconFileTypeCsv, { size: 16 }),
-  '.doc': React.createElement(IconFileTypeDoc, { size: 16 }),
-  '.pdf': React.createElement(IconFileTypePdf, { size: 16 }),
+  ".c": React.createElement(CIcon, { size: 16 }),
+  ".h": React.createElement(CIcon, { size: 16 }),
+
+  // Arduino (still C)
+  ".ino": React.createElement(CIcon, { size: 16 }),
+  ".pde": React.createElement(CIcon, { size: 16 }),
+
+  // ESP-IDF / build
+  ".cmake": React.createElement(IconSettings, { size: 16 }),
+  ".mk": React.createElement(IconSettings, { size: 16 }),
+  ".make": React.createElement(IconSettings, { size: 16 }),
+  ".ld": React.createElement(IconBinary, { size: 16 }),
+  ".s": React.createElement(IconBinary, { size: 16 }),
+  ".asm": React.createElement(IconBinary, { size: 16 }),
 };
+
+
 
 // Special files (no extension or special names)
 const specialFileIcons: Record<string, React.ReactNode> = {

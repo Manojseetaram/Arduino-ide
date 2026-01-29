@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
-import { IconX, IconTerminal2, IconPlayerPlay } from "@tabler/icons-react";
+import { IconX, IconTerminal2, IconPlayerPlay, IconFileCode, IconFile, IconSettings } from "@tabler/icons-react";
 import { EditorTab } from "./explorer/types";
 import TerminalWrapper from "./terminal-wrapper";
 import { invoke } from "@tauri-apps/api/tauri";
+import { CIcon } from "./icons/CIcon";
 
 interface MonacoEditorProps {
   projectName: string;
@@ -17,6 +18,17 @@ interface MonacoEditorProps {
   onContentChange?: (tabId: string, content: string) => void;
   showTerminal?: boolean;
   onToggleTerminal?: () => void;
+}
+
+function getTabIcon(filename: string) {
+  if (filename.endsWith(".c")) return <CIcon size={14} />;
+  if (filename.endsWith(".h")) return <CIcon size={14} />;
+  if (filename.endsWith(".cpp")) return <IconFileCode size={14} />;
+  if (filename.endsWith(".ino")) return <IconFileCode size={14} />;
+   if (filename.endsWith(".txt")) return <IconSettings size={14} />;
+    if (filename.endsWith('sdkconfig')) return <IconSettings size={14} />;
+    
+  return <IconFile size={14} />;
 }
 
 export function MonacoEditor({
@@ -278,7 +290,11 @@ export function MonacoEditor({
               `}
               onClick={() => onTabSelect(tab.id)}
             >
-              <span className="truncate flex-1">{tab.name}</span>
+              <div className="flex items-center gap-2 flex-1 truncate">
+  {getTabIcon(tab.name)}
+  <span className="truncate">{tab.name}</span>
+</div>
+
               {!tab.saved && <span className="w-2 h-2 rounded-full bg-yellow-500"></span>}
               <button
                 onClick={(e) => handleTabClose(e, tab.id)}
