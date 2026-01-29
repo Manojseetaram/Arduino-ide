@@ -3,7 +3,7 @@ use std::fs;
 use std::process::Command;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
+use tauri::api::dialog::FileDialogBuilder;
 #[derive(Serialize, Deserialize, Clone , Debug)]
 pub struct Project {
     pub name: String,
@@ -101,4 +101,17 @@ pub fn create_project(name: String) -> Result<String, String> {
     write_recent_projects(recent);
 
     Ok(project_path.to_string_lossy().to_string())
+}
+
+
+#[tauri::command]
+pub async fn open_project_dialog() -> Result<Option<String>, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    FileDialogBuilder::new()
+        .pick_folder(move |folder| {
+            let _ = tx.send(folder.map(|p| p.to_string_lossy().to_string()));
+        });
+
+    rx.recv().map_err(|e| e.to_string())
 }

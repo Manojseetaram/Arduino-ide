@@ -219,10 +219,7 @@ export function PostmanEditor({
       <div className="bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
         {/* Project title with terminal toggle */}
         <div className="px-4 py-2 border-b border-gray-300 dark:border-gray-700 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <IconSend size={18} />
-            <span className="font-semibold">Postman - {projectName}</span>
-          </div>
+         
           
           {/* Terminal toggle button */}
           <button

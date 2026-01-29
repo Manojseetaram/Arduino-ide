@@ -8,6 +8,7 @@ import { ExplorerNode, EditorTab } from "@/components/explorer/types";
 import { PostmanEditor } from "@/components/explorer/postman-editor";
 import { invoke } from "@tauri-apps/api/tauri";
 import { IconPlus, IconFolderPlus, IconSettings, IconClock, IconFolder } from "@tabler/icons-react";
+import { listen } from "@tauri-apps/api/event";
 
 type Project = {
   name: string;
@@ -64,22 +65,26 @@ const uniqueProjectNames = Array.from(
     loadEditorState();
   }, []);
 
- useEffect(() => {
+// ---------------- Load projects ----------------
+useEffect(() => {
   const loadProjects = async () => {
     try {
       const allProjects: Project[] = await invoke("read_recent_projects");
+      console.log("[LOG] read_recent_projects:", allProjects);
+
       setProjects(allProjects);
       setRecentProjects(allProjects.slice(0, 5));
 
-      // Load files for each project
       const filesState: Record<string, ExplorerNode[]> = {};
 
       for (const proj of allProjects) {
         try {
-         const children: ExplorerNode[] = normalizeNodes(
-  await invoke("list_project_files", { projectPath: proj.path }),
-  proj.path
-);
+          console.log(`[LOG] list_project_files invoked for project: ${proj.name}, path: ${proj.path}`);
+          const children: ExplorerNode[] = normalizeNodes(
+            await invoke("list_project_files", { projectPath: proj.path }),
+            proj.path
+          );
+          console.log(`[LOG] list_project_files returned ${children.length} nodes for project: ${proj.name}`);
 
           filesState[proj.name] = [
             {
@@ -88,59 +93,63 @@ const uniqueProjectNames = Array.from(
               type: "folder",
               path: proj.path,
               children,
-              isOpen : false
+              isOpen: false
             },
           ];
         } catch (err) {
-          console.error(`Failed to load files for project ${proj.name}:`, err);
+          console.error(`[ERROR] Failed to load files for project ${proj.name}:`, err);
         }
       }
 
       setProjectFiles(filesState);
 
     } catch (err) {
-      console.error("Failed to load projects:", err);
+      console.error("[ERROR] Failed to load projects:", err);
     }
   };
 
   loadProjects();
 }, []);
 
+const addProject = async (name: string) => {
+  try {
+    console.log(`[LOG] create_project invoked for project: ${name}`);
+    const projectPath: string = await invoke("create_project", { name });
+    console.log(`[LOG] create_project returned path: ${projectPath}`);
 
-  // ---------------- Add new project ----------------
-  const addProject = async (name: string) => {
-    try {
-      const projectPath: string = await invoke("create_project", { name });
-      const children: ExplorerNode[] = await invoke("list_project_files", { projectPath });
+    console.log(`[LOG] list_project_files invoked for new project: ${name}`);
+    const children: ExplorerNode[] = normalizeNodes(
+      await invoke("list_project_files", { projectPath }),
+      projectPath
+    );
+    console.log(`[LOG] list_project_files returned ${children.length} nodes for new project: ${name}`);
 
-      const rootNode: ExplorerNode = {
-        id: name,
-        name,
-        type: "folder",
-        path: projectPath,
-        children,
-        isOpen: false
-      };
+    const rootNode: ExplorerNode = {
+      id: name,
+      name,
+      type: "folder",
+      path: projectPath,
+      children,
+      isOpen: false
+    };
 
-      setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
-      setProjects(prev => [...prev, { name, path: projectPath }]);
+    setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
+    setProjects(prev => [...prev, { name, path: projectPath }]);
 
-      const updatedRecent = [{ name, path: projectPath }, ...recentProjects.filter(p => p.name !== name)].slice(0, 5);
-      setRecentProjects(updatedRecent);
+    const updatedRecent = [{ name, path: projectPath }, ...recentProjects.filter(p => p.name !== name)].slice(0, 5);
+    setRecentProjects(updatedRecent);
 
-      // Save recent projects in Rust
-      await invoke("write_recent_projects", { projects: updatedRecent });
+    await invoke("write_recent_projects", { projects: updatedRecent });
 
-      setEditorTabs(prev => ({ ...prev, [name]: [] }));
-      setActiveTabId(prev => ({ ...prev, [name]: null }));
-      setShowTerminal(prev => ({ ...prev, [name]: false }));
-      setCurrentProject(name);
-      setShowCreate(false);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
+    setEditorTabs(prev => ({ ...prev, [name]: [] }));
+    setActiveTabId(prev => ({ ...prev, [name]: null }));
+    setShowTerminal(prev => ({ ...prev, [name]: false }));
+    setCurrentProject(name);
+    setShowCreate(false);
+  } catch (err) {
+    console.error("[ERROR] addProject failed:", err);
+  }
+};
 const updateFolderChildren = useCallback(
   (folderId: string, children: ExplorerNode[]) => {
     if (!currentProject) return;
@@ -164,21 +173,41 @@ const updateFolderChildren = useCallback(
   [currentProject]
 );
 
-  // ---------------- Select project (recent or normal) ----------------
-  const handleSelectProject = async (name: string, path: string) => {
+ // ---------------- Select project (recent or normal) ----------------
+const handleSelectProject = useCallback(
+  async (name: string, path: string) => {
     setCurrentProject(name);
 
     if (!projectFiles[name]) {
       try {
-        const children: ExplorerNode[] = await invoke("list_project_files", { projectPath: path });
-        const rootNode: ExplorerNode = {
-          id: name,
-          name,
-          type: "folder",
-          path,
-          children,
-        };
-        setProjectFiles(prev => ({ ...prev, [name]: [rootNode] }));
+        const children: ExplorerNode[] = normalizeNodes(
+          await invoke("list_project_files", { projectPath: path }),
+          path
+        );
+
+        // ✅ Create root node only if it does not exist
+        setProjectFiles(prev => {
+          if (prev[name]?.length) {
+            // root exists, just update children
+            return {
+              ...prev,
+              [name]: prev[name].map(node =>
+                node.id === name ? { ...node, children } : node
+              ),
+            };
+          } else {
+            // root does not exist, create it
+            const rootNode: ExplorerNode = {
+              id: name,
+              name,
+              type: "folder",
+              path,
+              children,
+              isOpen: false,
+            };
+            return { ...prev, [name]: [rootNode] };
+          }
+        });
       } catch (err) {
         console.error("Failed to load project files:", err);
       }
@@ -187,6 +216,7 @@ const updateFolderChildren = useCallback(
     try {
       const savedState: EditorTabState[] = await invoke("load_editor_state");
       const projectState = savedState.find(s => s.project_name === name);
+
       if (projectState) {
         setEditorTabs(prev => ({ ...prev, [name]: projectState.tabs }));
         setActiveTabId(prev => ({ ...prev, [name]: projectState.active_tab_id || null }));
@@ -194,6 +224,7 @@ const updateFolderChildren = useCallback(
         setEditorTabs(prev => ({ ...prev, [name]: [] }));
         setActiveTabId(prev => ({ ...prev, [name]: null }));
       }
+
       setShowTerminal(prev => ({ ...prev, [name]: false }));
     } catch (err) {
       console.error("Failed to load project editor state:", err);
@@ -204,7 +235,10 @@ const updateFolderChildren = useCallback(
 
     // Persist recent projects in Rust
     await invoke("write_recent_projects", { projects: updatedRecent });
-  };
+  },
+  [projectFiles, recentProjects]
+);
+
 
   // ---------------- Editor helpers ----------------
   const openPostmanTab = useCallback(() => {
@@ -225,11 +259,11 @@ const updateFolderChildren = useCallback(
     setActiveTabId(prev => ({ ...prev, [currentProject]: postmanTab.id }));
   }, [currentProject]);
 
- const handleFileSelect = useCallback(
+// ---------------- File select ----------------
+const handleFileSelect = useCallback(
   async (node: ExplorerNode) => {
-    // 🚨 ABSOLUTE GUARD
     if (node.type !== "file") {
-      console.warn("Blocked directory open:", node.path);
+      console.warn("[LOG] Blocked directory open:", node.path);
       return;
     }
 
@@ -243,7 +277,9 @@ const updateFolderChildren = useCallback(
       return;
     }
 
+    console.log(`[LOG] read_file invoked for path: ${node.path}`);
     const content: string = await invoke("read_file", { path: node.path });
+    console.log(`[LOG] read_file returned content length: ${content.length} for path: ${node.path}`);
 
     const newTab: EditorTab = {
       id: crypto.randomUUID(),
@@ -263,6 +299,27 @@ const updateFolderChildren = useCallback(
   },
   [currentProject, editorTabs]
 );
+useEffect(() => {
+  const unlisten = listen("menu-open-project", async () => {
+    console.log("[MENU] Open Project triggered");
+
+    try {
+      const path: string | null = await invoke("open_project_dialog");
+      console.log("[MENU] Dialog returned:", path);
+
+      if (!path) return;
+
+      const name = path.split("/").pop() || "Unnamed";
+      await handleSelectProject(name, path);
+    } catch (err) {
+      console.error("[MENU] Open project failed:", err);
+    }
+  });
+
+  return () => {
+    unlisten.then(f => f());
+  };
+}, [handleSelectProject]);
 
 
   const handleTabSelect = useCallback((tabId: string) => {

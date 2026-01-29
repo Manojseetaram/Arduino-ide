@@ -229,29 +229,11 @@ export function MonacoEditor({
       <div className="bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
         {/* Toolbar with buttons */}
         <div className="px-4 py-2 flex justify-between items-center border-b border-gray-300 dark:border-gray-700">
-          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {projectName}
-          </div>
+          
           
           <div className="flex items-center gap-3">
             {/* Terminal toggle button */}
-            <button
-              onClick={toggleTerminal}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm ${
-                showTerminal
-                  ? theme === "dark"
-                    ? "bg-blue-600 text-white"
-                    : "bg-blue-500 text-white"
-                  : theme === "dark"
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-              title={showTerminal ? "Hide Terminal" : "Show Terminal"}
-            >
-              <IconTerminal2 size={16} />
-              <span>Terminal</span>
-            </button>
-            
+          
             {/* 🚀 ULTRA INSTANT Compile button */}
             <button
               onClick={handleCompile}
