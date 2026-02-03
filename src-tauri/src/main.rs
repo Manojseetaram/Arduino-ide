@@ -53,7 +53,7 @@ fn main() {
             commands::build::build_project,
             commands::artifacts::get_build_artifacts,
             commands::upload::upload_bin,
-            commands::controllers::select_controllers,
+           
             commands::flash::flash,
             commands::explorer::list_project_files,
             commands::explorer::read_file,
@@ -67,7 +67,9 @@ fn main() {
             commands::explorer::rename_path,
             commands::build::open_terminal_instantly,
             commands::project::open_project_dialog,
-
+            commands::auth::student_login,
+            commands::refresh::refresh_token,
+            commands::controllers::get_student_controllers
         ])
        .on_menu_event(|event| {
     let window = event.window();

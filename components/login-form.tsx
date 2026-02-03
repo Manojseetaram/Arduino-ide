@@ -1,19 +1,42 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { invoke } from "@tauri-apps/api/tauri";
 
 export function LoginForm() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const router = useRouter()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log({ email, password })
-    // Navigate to dashboard page after login
-    router.push("/dashboard")
-  }
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res: any = await invoke("student_login", {
+        email,
+        password,
+      });
+
+      console.log("LOGIN SUCCESS", res);
+
+      // TEMP (OK for now, we’ll secure later)
+      localStorage.setItem("access_token", res.access_token);
+      localStorage.setItem("refresh_token", res.refresh_token);
+
+      router.push("/dashboard");
+    } catch (err) {
+      console.error(err);
+      setError("Invalid email or password");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -46,12 +69,17 @@ export function LoginForm() {
         />
       </div>
 
+      {error && (
+        <p className="text-sm text-red-500 text-center">{error}</p>
+      )}
+
       <button
         type="submit"
-        className="w-full rounded-md bg-black py-2 text-white hover:opacity-90"
+        disabled={loading}
+        className="w-full rounded-md bg-black py-2 text-white hover:opacity-90 disabled:opacity-60"
       >
-        Sign In
+        {loading ? "Signing in..." : "Sign In"}
       </button>
     </form>
-  )
+  );
 }

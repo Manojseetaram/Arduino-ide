@@ -8,3 +8,5 @@ pub mod build;
 pub mod artifacts;
 pub mod explorer;
 pub mod editor_state;
+pub mod auth;
+pub mod refresh;
