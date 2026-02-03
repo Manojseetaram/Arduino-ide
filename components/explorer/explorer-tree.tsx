@@ -6,9 +6,10 @@ import { FileIcon, sortExplorerNodes, isEspIdfFile } from "./utils";
 import { IconFolder, IconFilePlus, IconFolderPlus, IconChevronRight, IconSettings, IconFile } from "@tabler/icons-react";
 import { useState, useEffect } from "react";
 import { exists } from "@tauri-apps/api/fs";
-
+import { emit } from "@tauri-apps/api/event";
 interface ExplorerTreeProps {
   nodes: ExplorerNode[];
+  
   onFolderSelect: (id: string) => void;
   onFileSelect?: (file: ExplorerNode) => void;
   onFolderToggle: (id: string) => void;
@@ -27,29 +28,32 @@ interface ExplorerTreeProps {
 }
 
 async function renameNode(node: ExplorerNode, newName: string) {
-  console.log("Renaming node:", node.path, "to", newName);
-  try {
-    await invoke("rename_path", { old_path: node.path, new_name: newName });
-  } catch (err) {
-    console.error("Rename failed:", err);
-    alert("Failed to rename: " + err);
-  }
+  await invoke("rename_path", {
+    oldPath: node.path,
+    newName,
+  });
+
+  const projectRoot = node.path.split("/").slice(0, -1).join("/");
+
+  await emit("refresh-project-files", projectRoot);
 }
+
 
 async function deleteNode(node: ExplorerNode) {
-  const pathExists = await exists(node.path);
-  if (!pathExists) {
-    alert(`Cannot delete. Path does not exist: ${node.path}`);
-    return;
-  }
-
   try {
     await invoke("delete_path", { path: node.path });
-    console.log(`Deleted ${node.path}`);
+
+    // 🔥 derive project root safely
+    const projectPath = node.path.split("/").slice(0, -1).join("/");
+
+    await emit("refresh-project-files", projectPath);
+    return true;
   } catch (err) {
     console.error("Delete failed:", err);
+    return false;
   }
 }
+
 
 
 async function copyName(node: ExplorerNode) {
@@ -180,6 +184,7 @@ function FolderItem({
 
   
 
+  
   return (
     <div>
       <div
@@ -265,27 +270,30 @@ function FolderItem({
 
       {isOpen && folder.children && folder.children.length > 0 && (
         <ExplorerTree
-          nodes={folder.children}
-          onFolderSelect={onSelect}
-          onFileSelect={onFileSelect}
-          onFolderToggle={onToggle}
-          openFolders={openFolders}
-          activeFileId={activeFileId}
-          depth={depth + 1}
-          selectedFolderId={selectedFolderId}
-          creating={creating}
-          tempName={tempName}
-          parentId={folder.id}
-          onStartCreate={onStartCreate}
-          onCreateNode={onCreateNode}
-          onCancelCreate={onCancelCreate}
-          onTempNameChange={onTempNameChange}
-          onNodesUpdated={onNodesUpdated}
-        />
+  nodes={folder.children}
+  onFolderSelect={onSelect}
+  onFileSelect={onFileSelect}
+  
+  onFolderToggle={onToggle}
+  openFolders={openFolders}
+  activeFileId={activeFileId}
+  depth={depth + 1}
+  selectedFolderId={selectedFolderId}
+  creating={creating}
+  tempName={tempName}
+  parentId={folder.id}
+  onStartCreate={onStartCreate}
+  onCreateNode={onCreateNode}
+  onCancelCreate={onCancelCreate}
+  onTempNameChange={onTempNameChange}
+  onNodesUpdated={onNodesUpdated} // ✅ pass-through
+/>
+
       )}
     </div>
   );
 }
+
 
 export function ExplorerTree({
   nodes,
@@ -317,51 +325,110 @@ export function ExplorerTree({
   // Handle editing when editing state changes
   useEffect(() => {
     if (editing) {
-      const node = nodes.find(n => n.id === editing.nodeId);
-      if (node) {
-        setEditingName(node.name);
-      }
+    const node = nodes.find(n => n.id === editing.nodeId);
+
+if (!node) {
+  alert("File no longer exists. Refreshing explorer.");
+  setEditing(null);
+  onNodesUpdated?.();
+  return;
+}
+
     }
   }, [editing, nodes]);
 
-  const handleRenameSubmit = async () => {
-    if (!editing || !editingName.trim() || editingName === editing.originalName) {
-      setEditing(null);
-      return;
-    }
+const handleRenameSubmit = async () => {
+  if (!editing) return;
 
-    try {
-      const node = nodes.find(n => n.id === editing.nodeId);
-      if (node) {
-        await renameNode(node, editingName);
-        setEditing(null);
-        // Refresh the nodes to show the updated name
-        if (onNodesUpdated) {
-          onNodesUpdated();
-        }
-      }
-    } catch (error) {
-      console.error("Failed to rename:", error);
-      alert(`Failed to rename: ${error}`);
-    }
-  };
+  let newName = editingName.trim();
+  if (!newName) {
+    alert("Name cannot be empty");
+    setEditing(null);
+    return;
+  }
 
-  const handleDelete = async (node: ExplorerNode) => {
-    if (confirm(`Are you sure you want to delete "${node.name}"?`)) {
-      try {
-        await deleteNode(node);
-        setContextMenu(null);
-        // Refresh the nodes to remove the deleted item
-        if (onNodesUpdated) {
-          onNodesUpdated();
-        }
-      } catch (error) {
-        console.error("Failed to delete:", error);
-        alert(`Failed to delete: ${error}`);
+  const node = nodes.find(n => n.id === editing.nodeId);
+  if (!node) {
+    setEditing(null);
+    return;
+  }
+
+  // Preserve extension for files
+  if (node.type === "file") {
+    const parts = node.name.split(".");
+    if (parts.length > 1) {
+      const ext = "." + parts.pop();
+      if (!newName.endsWith(ext)) {
+        newName += ext;
       }
     }
-  };
+  }
 
+  // Check for invalid characters in filename
+  const invalidChars = /[<>:"/\\|?*\x00-\x1F]/;
+  if (invalidChars.test(newName)) {
+    alert("Filename contains invalid characters");
+    return;
+  }
+
+  // No change
+  if (newName === node.name) {
+    setEditing(null);
+    return;
+  }
+
+  try {
+    console.log("Renaming:", node.path, "->", newName);
+    const result = await renameNode(node, newName);
+    console.log("Rename result:", result);
+    
+    setEditing(null);
+    // Refresh explorer
+  
+
+  } catch (err: any) {
+    console.error("Rename error:", err);
+    
+    // User-friendly error messages
+    if (err.toString().includes("Target already exists")) {
+      alert(`A file/folder with name "${newName}" already exists in this location.`);
+    } else if (err.toString().includes("read-only")) {
+      alert(`Cannot rename. File/folder is read-only.`);
+    } else if (err.toString().includes("Permission denied")) {
+      alert(`Permission denied. Cannot rename "${node.name}".`);
+    } else {
+      alert(`Failed to rename "${node.name}": ${err}`);
+    }
+  }
+};
+
+
+const handleDelete = async (node: ExplorerNode) => {
+  // Special confirmation message based on type
+  const message = node.type === "folder" 
+    ? `Are you sure you want to delete folder "${node.name}" and all its contents?`
+    : `Are you sure you want to delete file "${node.name}"?`;
+  
+  if (!confirm(message)) {
+    return;
+  }
+
+  try {
+    const success = await deleteNode(node);
+    if (success) {
+      setContextMenu(null);
+      // Refresh the explorer
+    
+      // If it was the active file, clear selection
+      if (activeFileId === node.id && onFileSelect) {
+        onFileSelect(undefined as any); // Clear selection
+      }
+    }
+  } catch (error) {
+    console.error("Failed to delete:", error);
+    alert(`Failed to delete: ${error}`);
+  }
+};
   return (
     <>
       <div className="space-y-px">
@@ -440,7 +507,8 @@ export function ExplorerTree({
             />
           );
         })}
-        
+  
+
         {creating && selectedFolderId === parentId && (
           <div className="pl-2" style={{ paddingLeft: `${depth * 16 + 24}px` }}>
             <input
@@ -518,4 +586,10 @@ export function ExplorerTree({
       )}
     </>
   );
+}
+
+function getProjectRoot(fullPath: string): string {
+  // go up until project folder
+  // example: /Users/.../shree/src/main.c → /Users/.../shree
+  return fullPath.split("/").slice(0, -1).join("/");
 }

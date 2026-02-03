@@ -118,16 +118,41 @@ pub fn create_folder(full_path: String) -> Result<String, String> {
 }
 
 #[command]
-pub fn rename_path(old_path: String, new_name: String) -> Result<(), String> {
-    use std::path::Path;
+pub fn rename_path(old_path: String, new_name: String) -> Result<String, String> {
     use std::fs;
+    use std::path::PathBuf;
+    use std::path::Path;
 
-    let old = Path::new(&old_path);
-    let parent = old.parent().ok_or("Invalid path")?;
-    let new_path = parent.join(new_name);
+    let old = PathBuf::from(&old_path);
+    
+    // Debug logging
+    println!("Renaming: {} -> {}", old_path, new_name);
+    
+    if !old.exists() {
+        return Err(format!("Path does not exist: {}", old_path));
+    }
 
-    fs::rename(old, new_path).map_err(|e| e.to_string())?;
-    Ok(())
+    let parent = old.parent().ok_or("Invalid path - no parent directory")?;
+    let new_path = parent.join(&new_name);
+
+    if new_path.exists() {
+        return Err(format!("Target already exists: {}", new_path.display()));
+    }
+
+    // Check if we have write permissions to both source and destination
+    let metadata = fs::metadata(&old).map_err(|e| e.to_string())?;
+    if metadata.permissions().readonly() {
+        return Err("Source is read-only".into());
+    }
+
+    // Actually rename the file/folder
+    fs::rename(&old, &new_path).map_err(|e| {
+        println!("Rename error: {}", e);
+        format!("Failed to rename: {}", e)
+    })?;
+
+    println!("Successfully renamed to: {}", new_path.display());
+    Ok(new_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -136,16 +161,49 @@ pub fn delete_path(path: String) -> Result<(), String> {
     use std::path::Path;
 
     let p = Path::new(&path);
+    
+    // Debug logging
+    println!("Deleting path: {}", path);
 
     if !p.exists() {
         return Err(format!("Path does not exist: {}", path));
     }
 
-    if p.is_dir() {
-        fs::remove_dir_all(p).map_err(|e| e.to_string())?;
-    } else {
-        fs::remove_file(p).map_err(|e| e.to_string())?;
+    // Check permissions first
+    let metadata = fs::metadata(p).map_err(|e| e.to_string())?;
+    if metadata.permissions().readonly() {
+        return Err("Path is read-only".into());
     }
 
+    // Check if it's a symbolic link
+    if p.is_symlink() {
+        return Err("Cannot delete symbolic links through this interface".into());
+    }
+
+    if p.is_dir() {
+        // Additional check: is directory empty?
+        let mut entries = fs::read_dir(p).map_err(|e| e.to_string())?;
+        if entries.next().is_some() {
+            // Directory is not empty - ask for confirmation on frontend
+            fs::remove_dir_all(p).map_err(|e| {
+                println!("Delete dir error: {}", e);
+                format!("Failed to delete directory: {}", e)
+            })?;
+        } else {
+            // Directory is empty
+            fs::remove_dir(p).map_err(|e| {
+                println!("Delete empty dir error: {}", e);
+                format!("Failed to delete directory: {}", e)
+            })?;
+        }
+    } else {
+        // It's a file
+        fs::remove_file(p).map_err(|e| {
+            println!("Delete file error: {}", e);
+            format!("Failed to delete file: {}", e)
+        })?;
+    }
+
+    println!("Successfully deleted: {}", path);
     Ok(())
 }

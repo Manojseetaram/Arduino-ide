@@ -74,22 +74,22 @@ useEffect(() => {
   let unlisten: (() => void) | undefined;
 
   (async () => {
-    unlisten = await listen<string>(
-      "refresh-project-files",
-      async (event) => {
-        console.log("TAURI REFRESH EVENT RECEIVED", event.payload);
+    unlisten = await listen<string>("refresh-project-files", async (event) => {
+  const projectPath = event.payload;
 
-        const projectPath = event.payload;
-        const refreshedFiles = await fetchProjectFiles(projectPath);
+  if (!projectPath) {
+    console.warn("⚠️ refresh-project-files ignored: empty projectPath");
+    return;
+  }
 
-        setFiles(refreshedFiles);
+  const refreshedFiles = await fetchProjectFiles(projectPath);
+  setFiles(refreshedFiles);
 
-        // open project root so build/ is visible
-        if (refreshedFiles[0]) {
-          setOpenFolders(new Set([refreshedFiles[0].id]));
-        }
-      }
-    );
+  if (refreshedFiles[0]) {
+    setOpenFolders(new Set([refreshedFiles[0].id]));
+  }
+});
+
   })();
 
   return () => {
@@ -104,7 +104,7 @@ const handleCreateNode = useCallback(async () => {
 
   const finalName =
     creating === "file" && !tempName.includes(".")
-      ? `${tempName}.cpp`
+      ? `${tempName}.c`
       : tempName;
 
   // ✅ find parent node by ID
