@@ -7,9 +7,24 @@ struct LoginRequest {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct Tokens {
+    pub access_token: String,
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct User {
+    pub email: String,
+    pub id: String,
+    pub role: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LoginResponse {
-    pub refresh_token: Option<String>, 
-    pub message: Option<String>,
+    pub expires_in: Option<u64>,
+    pub status: Option<String>,
+    pub tokens: Tokens,
+    pub user: User,
 }
 
 #[tauri::command]

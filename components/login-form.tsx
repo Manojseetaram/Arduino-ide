@@ -12,31 +12,31 @@ export function LoginForm() {
 
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+  setLoading(true);
 
-    try {
-      const res: any = await invoke("student_login", {
-        email,
-        password,
-      });
+  try {
+    const res: any = await invoke("student_login", {
+      email,
+      password,
+    });
 
-      console.log("LOGIN SUCCESS", res);
+    console.log("LOGIN SUCCESS", res);
 
-      // TEMP (OK for now, we’ll secure later)
-      localStorage.setItem("access_token", res.access_token);
-      localStorage.setItem("refresh_token", res.refresh_token);
+    // ✅ Tokens are nested inside `tokens`
+    localStorage.setItem("access_token", res.tokens.access_token);
+    localStorage.setItem("refresh_token", res.tokens.refresh_token);
 
-      router.push("/dashboard");
-    } catch (err) {
-      console.error(err);
-      setError("Invalid email or password");
-    } finally {
-      setLoading(false);
-    }
-  };
+    router.push("/dashboard");
+  } catch (err) {
+    console.error(err);
+    setError("Invalid email or password");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">

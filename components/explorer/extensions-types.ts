@@ -1,15 +1,7 @@
-export interface Extension {
-  id: string;
-  name: string;
-  description: string;
-  author: string;
-  version: string;
-  installed: boolean;
-  downloads: number;
-  rating: number;
-  tags: string[];
-  icon?: string;
-  homepage?: string;
+export interface Controller {
+  controller_id: string
+  controller_no: number
+  device_id: string
+  status: "online" | "offline"
+  selectable: boolean
 }
-
-export type ExtensionCategory = 'all' | 'installed' | 'popular' | 'boards' | 'tools' | 'themes';
