@@ -10,3 +10,5 @@ pub mod explorer;
 pub mod editor_state;
 pub mod auth;
 pub mod refresh;
+pub mod select_controller;
+pub mod release_controller;

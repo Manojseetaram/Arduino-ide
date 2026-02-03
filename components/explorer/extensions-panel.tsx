@@ -44,7 +44,7 @@ export function ExtensionsPanel({ theme }: ExtensionsPanelProps) {
 
         const token = localStorage.getItem("access_token");
         if (!token) return;
-const res = await invokeWithAuth<any>("get_student_controllers")
+        const res = await invokeWithAuth<any>("get_student_controllers");
 
         const mapped: Extension[] = res.controllers.map((c: any) => ({
           id: c.controller_id,
@@ -52,7 +52,10 @@ const res = await invokeWithAuth<any>("get_student_controllers")
           description: `Device: ${c.device_id}`,
           author: "Vithsutra",
           version: "1.0.0",
-          installed: c.selectable,
+
+          // 🔥 KEY FIX
+          installed: !c.selectable, // selected == installed
+
           downloads: 0,
           rating: c.status === "online" ? 5 : 3,
           tags: ["controller", c.status],
@@ -70,48 +73,48 @@ const res = await invokeWithAuth<any>("get_student_controllers")
     fetchControllers();
   }, []);
 
-async function invokeWithAuth<T>(
-  command: string,
-  args: any = {}
-): Promise<T> {
-  const accessToken = localStorage.getItem("access_token")
+  async function invokeWithAuth<T>(
+    command: string,
+    args: any = {}
+  ): Promise<T> {
+    const accessToken = localStorage.getItem("access_token");
 
-  try {
-    return await invoke<T>(command, {
-      ...args,
-      accessToken,
-    })
-  } catch (err: any) {
-    const msg = String(err)
+    try {
+      return await invoke<T>(command, {
+        ...args,
+        accessToken,
+      });
+    } catch (err: any) {
+      const msg = String(err);
 
-    // ❌ Do NOT retry if refresh itself failed
-    if (!msg.includes("expired")) {
-      throw err
+      // ❌ Do NOT retry if refresh itself failed
+      if (!msg.includes("expired")) {
+        throw err;
+      }
+
+      const refreshToken = localStorage.getItem("refresh_token");
+      if (!refreshToken) {
+        throw new Error("No refresh token found");
+      }
+
+      // 🔁 Refresh ONCE
+      const refreshed: any = await invoke("refresh_token", {
+        refreshToken,
+      });
+
+      if (!refreshed?.access_token) {
+        throw new Error("Refresh failed");
+      }
+
+      localStorage.setItem("access_token", refreshed.access_token);
+
+      // 🔁 Retry original call ONCE
+      return await invoke<T>(command, {
+        ...args,
+        accessToken: refreshed.access_token,
+      });
     }
-
-    const refreshToken = localStorage.getItem("refresh_token")
-    if (!refreshToken) {
-      throw new Error("No refresh token found")
-    }
-
-    // 🔁 Refresh ONCE
-    const refreshed: any = await invoke("refresh_token", {
-      refreshToken,
-    })
-
-    if (!refreshed?.access_token) {
-      throw new Error("Refresh failed")
-    }
-
-    localStorage.setItem("access_token", refreshed.access_token)
-
-    // 🔁 Retry original call ONCE
-    return await invoke<T>(command, {
-      ...args,
-      accessToken: refreshed.access_token,
-    })
   }
-}
 
   /* ================= FILTER ================= */
 
@@ -125,7 +128,8 @@ async function invokeWithAuth<T>(
           t.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
-      if (selectedCategory === "installed") return matchesSearch && ext.installed;
+      if (selectedCategory === "installed")
+        return matchesSearch && ext.installed;
       if (selectedCategory === "boards")
         return matchesSearch && ext.tags.includes("boards");
       if (selectedCategory === "tools")
@@ -153,20 +157,64 @@ async function invokeWithAuth<T>(
 
   /* ================= INSTALL / UNINSTALL ================= */
 
-  const handleInstallToggle = (extension: Extension) => {
+  const handleInstallToggle = async (ext: Extension) => {
     if (installingId) return;
+    setInstallingId(ext.id);
 
-    setInstallingId(extension.id);
+    try {
+      if (!ext.installed) {
+        // 🔒 SELECT CONTROLLER
+        await invokeWithAuth("select_controller", {
+          controllerId: ext.id,
+        });
+      } else {
+        // 🔓 RELEASE CONTROLLER
+        await invokeWithAuth("release_controller", {
+          controllerId: ext.id,
+        });
+      }
 
-    setTimeout(() => {
-      setExtensions((prev) =>
-        prev.map((e) =>
-          e.id === extension.id ? { ...e, installed: !e.installed } : e
-        )
-      );
-
+      // 🔄 Refresh list from backend (SOURCE OF TRUTH)
+      await refreshControllers();
+    } catch (err) {
+      console.error("Controller action failed", err);
+      
+      // CORRECTED ERROR HANDLING ADDED HERE
+      const msg = String(err);
+      if (msg.includes("no rows")) {
+        alert("Controller not available or already in use");
+      } else {
+        alert(msg);
+      }
+    } finally {
       setInstallingId(null);
-    }, 1200);
+    }
+  };
+
+  const refreshControllers = async () => {
+    try {
+      setLoading(true);
+      const res = await invokeWithAuth<any>("get_student_controllers");
+
+      const mapped: Extension[] = res.controllers.map((c: any) => ({
+        id: c.controller_id,
+        name: `Controller ${c.controller_no}`,
+        description: `Device: ${c.device_id}`,
+        author: "Vithsutra",
+        version: "1.0.0",
+        installed: !c.selectable,
+        downloads: 0,
+        rating: c.status === "online" ? 5 : 3,
+        tags: ["controller", c.status],
+        icon: c.status === "online" ? "🟢" : "🔴",
+      }));
+
+      setExtensions(mapped);
+    } catch (err) {
+      console.error("Failed to load controllers", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDownloads = (n: number) =>
@@ -181,9 +229,16 @@ async function invokeWithAuth<T>(
   return (
     <div className="h-full flex flex-col">
       {/* HEADER */}
-      <div className={`p-3 border-b ${dark ? "border-gray-700" : "border-gray-300"}`}>
+      <div
+        className={`p-3 border-b ${
+          dark ? "border-gray-700" : "border-gray-300"
+        }`}
+      >
         <div className="relative">
-          <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+          <IconSearch
+            className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"
+            size={14}
+          />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -228,6 +283,10 @@ async function invokeWithAuth<T>(
                 </div>
 
                 <button
+                  disabled={
+                    installingId === ext.id ||
+                    (!ext.installed && !ext.tags.includes("online"))
+                  }
                   onClick={(e) => {
                     e.stopPropagation();
                     handleInstallToggle(ext);
@@ -235,14 +294,14 @@ async function invokeWithAuth<T>(
                   className={`px-3 py-1 text-xs rounded ${
                     ext.installed
                       ? "bg-red-100 text-red-700"
-                      : "bg-blue-500 text-white"
+                      : "bg-blue-500 text-white disabled:opacity-50"
                   }`}
                 >
                   {installingId === ext.id
                     ? "..."
                     : ext.installed
-                    ? "Uninstall"
-                    : "Install"}
+                    ? "Release"
+                    : "Select"}
                 </button>
               </div>
             </div>
@@ -250,11 +309,16 @@ async function invokeWithAuth<T>(
       </div>
 
       {/* FOOTER */}
-      <div className={`p-2 border-t text-xs flex justify-between ${
-        dark ? "border-gray-700 bg-gray-900/50" : "border-gray-300 bg-gray-50"
-      }`}>
+      <div
+        className={`p-2 border-t text-xs flex justify-between ${
+          dark ? "border-gray-700 bg-gray-900/50" : "border-gray-300 bg-gray-50"
+        }`}
+      >
         <span>{sortedExtensions.length} controllers</span>
-        <button className="flex items-center gap-1 text-blue-500">
+        <button
+          onClick={refreshControllers}
+          className="flex items-center gap-1 text-blue-500"
+        >
           <IconRefresh size={12} />
           Refresh
         </button>

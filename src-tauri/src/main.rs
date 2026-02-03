@@ -69,7 +69,9 @@ fn main() {
             commands::project::open_project_dialog,
             commands::auth::student_login,
             commands::refresh::refresh_token,
-            commands::controllers::get_student_controllers
+            commands::controllers::get_student_controllers,
+            commands::select_controller::select_controller,
+            commands::release_controller::release_controller
         ])
        .on_menu_event(|event| {
     let window = event.window();
